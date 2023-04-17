@@ -86,7 +86,7 @@ void StepperMotor::stop() {
 }
 
 void StepperMotor::calibrate() { 
-	if (pins.limitSwitch == NULL || !IS_CONNECTED) {
+	if (pins.limitSwitch == 0 || !IS_CONNECTED) {
 		Serial.print("Not calibrating motor without limit switch: " + config.name);
 		return;
 	} else {
@@ -150,7 +150,7 @@ bool StepperMotor::isMoving() {
 }
 
 bool StepperMotor::isLimitSwitchPressed() {
-	if (pins.limitSwitch == NULL || !IS_CONNECTED) return false;
+	if (pins.limitSwitch == 0 || !IS_CONNECTED) return false;
 	else return digitalRead(pins.limitSwitch) == LOW;
 }
 
