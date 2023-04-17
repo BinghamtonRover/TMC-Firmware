@@ -11,7 +11,7 @@ StepperMotor::StepperMotor(StepperMotorPins pins, StepperMotorConfig config) :
 	driver(TMC5160Stepper(SPI, pins.chipSelect, 0.075)) { }
 
 int StepperMotor::radToSteps(float radians) { 
-	return newAngle * config.stepsPerRotation / (2*PI);
+	return radians * config.stepsPerRotation / (2*PI);
 }
 
 void StepperMotor::presetup() {
@@ -33,8 +33,7 @@ void StepperMotor::setup() {
 	Serial.print(pins.enable);
 	Serial.print(" and ");
 	Serial.print(pins.chipSelect);
-	Serial.print(" for ");
-	Serial.println(config.name)
+	Serial.print(" for " + config.name);
 	// -->
 	driver.begin();
 	driver.reset();
@@ -76,7 +75,7 @@ void StepperMotor::setup() {
 void StepperMotor::update() {
 	if (!IS_CONNECTED) return;
 	bool isMovingDown = driver.XTARGET() < driver.XACTUAL();
-	if (isLimitSwitchPresed() && isMovingDown) stop();
+	if (isLimitSwitchPressed() && isMovingDown) stop();
 }
 
 void StepperMotor::stop() {
@@ -96,8 +95,8 @@ void StepperMotor::calibrate() {
 
 	while(!isLimitSwitchPressed()) {
 		// This will technically overshoot the limit switch, but we call [stop]
-		currentSteps -= 10;
-		driver.XTARGET(currentSteps);
+		targetStep -= 10;
+		driver.XTARGET(targetStep);
 	}
 	stop();
 	angle = config.minLimit;
@@ -106,7 +105,7 @@ void StepperMotor::calibrate() {
 }
 
 void StepperMotor::moveTo(float radians) {
-	Serial.print("Moving " + name + " to ");
+	Serial.print("Moving " + config.name + " to ");
 	Serial.println(radians);
 	if (radians > config.maxLimit || radians < config.minLimit) { 
 		Serial.print("  ERROR: Out of bounds (valid inputs are ");
@@ -141,7 +140,7 @@ void StepperMotor::debugMoveToStep(int steps) {
 }
 
 void StepperMotor::debugMoveBySteps(int steps) {
-	moveToStep(targetStep + steps);
+	debugMoveToStep(targetStep + steps);
 }
 
 bool StepperMotor::isMoving() { 
