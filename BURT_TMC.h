@@ -10,157 +10,136 @@
 
 #include "TmcStepper.h"
 
-/// How often to check if any of the motors have stalled.
-#define STALL_CHECK_INTERVAL 100  // ms
-
+/// If this is false, all firmware will print to the console instead of using hardware.
 #define IS_CONNECTED true
+
+/// The pins that a #StepperMotor.
+struct StepperMotorPins {
+	/// The SPI chip select pin for this stepper motor.
+	int chipSelect;
+
+	/// The enable pin for this stepper motor. 
+	/// 
+	/// TMC5160 chips are enable-low, which means this must be written LOW to work.
+	int enable;
+
+	/// The limit switch associated for this motor. 
+	/// 
+	/// Set this to NULL to disable limit switches.
+	int limitSwitch;
+}
+
+/// Configuration for a #StepperMotor.
+struct StepperMotorConfig {
+	/// The Root Mean Square current to feed the motor, in mA.
+	int current;
+
+	/// The lower physical bound for this motor, in radians from the horizontal.
+	/// 
+	/// If there is a limit switch, it is located here. For continuous motion, use `-INFINITY`.
+	/// 
+	/// WARNING: Moving lower than this value can cause damage to the arm. 
+	float minLimit;
+
+	/// The upper physical bound for this motor, in radians from the horizontal.
+	/// 
+	/// If there is a limit switch, it is at #minLimit. For continuous motion, use `INFINITY`.
+	/// 
+	/// WARNING: Moving higher than this value can cause damage to the arm.
+	float maxLimit;
+
+	/// The amount of steps per 180 degrees, or π radians.
+	int stepsPer180; 
+
+	/// The speed of this motor.	
+	float speed;
+
+	/// The acceleration of this motor.
+	float accel;
+
+	/// The name of this motor.
+	String name;
+}
 
 /// Controls a TMC 5160 stepper motor. 
 /// 
-/// Backed by the `TMCStepper` library, this class manages an individual stepper motor such that
-/// it moves to a specific location within physical bounds with lots of redundancy. When moving,
-/// the code ensures the motor never moves by more than BurtArmConstants#maxDelta steps at a time,
-/// never moves lower than #minLimit, and never moves beyond #maxLimit. 
+/// This class drives a stepper motor that may have a few restrictions: 
+/// - If $StepperMotorPins::limitSwitch is non-null, there is a limit switch at #StepperMotorConfig::minLimit
+/// - This motor will never move lower than the limit switch, or higher than #StepperMotorConfig::maxLimit
 /// 
-/// To use this class, simply call #setup once and use #moveTo or #moveBy as desired. 
+/// For a continuous motor (with no limit switch), use `INFINITY` and `-INFINITY` for the limits. 
+/// For a motor with a limit switch, this setup assumes the joint is free to move in the *positive*
+/// direction away from the switch -- in other words, negative steps is towards the switch.
 /// 
-/// This class also has safety features such as #fixPotentialStall, #calibrate, and #isFinished.
-/// These are important as the design of the arm means that certain arrangements are likely to 
-/// damage the arm. If one motor behaves unpredictably, the structure as a whole risks instability.
-/// In the event of a failure, the safest thing to do is stop _all_ motor movement, which the code
-/// does with an infinite while loop. Error messages are logged over the Serial Monitor. 
+/// When using multiple instances of this class, be sure to call #presetup on *all* of them first, 
+/// and only then call #setup on each of them. Then you can use #moveTo or #moveBy as desired. 
 class StepperMotor { 
 	private: 
-		/// The chip select pin.
-		/// 
-		/// Used to initialize and configure the motor. If the setup goes wrong it probably 
-		/// has something to do with this pin. 
-		byte chipSelectPin;
+		/// The pins this motor is attached to.
+		StepperMotorPins pins;
 
-		/// The enable pin. 
-		/// 
-		/// Enables the motor. This doesn't seem to be used outside of #setup, not even by TMC. 
-		byte enablePin;
+		/// The configuration for this stepper motor.
+		StepperMotorConfig config;
 
-		/// The limit switch pin.
-		/// 
-		/// Used to evaluate whether the motor has trigged the limit switch. Used for calibration.
-		byte limitSwitchPin;
-
-		/// The Root Mean Square current to feed the motor, in mA.
-		/// 
-		/// This value is passed to TMC in #setup.
-		short current;
-
-		/// The lower physical bound for this motor. 
-		/// 
-		/// WARNING: Moving lower than this value can cause damage to the arm. 
-		float minLimit;
-
-		/// The upper physical bound for this motor. 
-		/// 
-		/// WARNING: Moving higher than this value can cause damage to the arm.
-		float maxLimit;
-
-		float stepsPer180;
-
-		/// The time (in milliseconds) that the next stall check is scheduled for. 
-		/// 
-		/// The system should check for stalls every #STALL_CHECK_INTERVAL milliseconds. Failure
-		/// to do so may result in one or motors stuck in place while the others keep moving. This
-		/// can cause damage to the arm and will certainly throw off any calculations. 
-		/// 
-		/// When this time has passed, call #fixPotentialStall to check and fix stalls.
-		float nextStallCheck;
-
-		/// The TMC instance for this motor.
-		/// 
-		/// Most physical actions are delegated to the TMC library. 
+		/// The TMC instance for this motor, backed by the `TMCStepper` library.
 		TMC5160Stepper driver;
 
-		/// Converts the desired radians to a number of steps. 
-		/// 
-		/// The result is specific to this motor, as #stepsPer180 changes the calculations.
+		/// Converts the desired radians to a number of steps, using #StepperMotorConfig::stepsPer180.
 		int radToSteps(float radians);
 
-		/// Checks if this motor has stalled. 
+		/// The step this motor is at or trying to get to.
 		/// 
-		/// Check this every #STALL_CHECK_INTERVAL milliseconds. Use #nextStallCheck to see when 
-		/// the next stall check has been scheduled for. 
+		/// When moving, this is identical to #TMC5160Stepper::XTARGET. When stationary, this is the
+		/// same as #TMC5160Stepper::XACTUAL. Use this when you do not care whether the arm is moving.
+		int targetStep;
+
+		/// The step that #TMC5160Stepper::XACTUAL would return at #StepperMotorConfig::minLimit.
 		/// 
-		/// NOTE: Do **not** call #fixPotentialStall from here, as that function calls this 
-		/// one to check for stalls, and will cause a stack overflow. 
-		bool didStall();
-
-		int currentSteps;
-
-		float speed;
-
-		float accel;
-
-		String name;
+		/// Since the TMC5160 sets `XACTUAL` to zero on boot, this value changes every startup. If there
+		/// is a limit switch, use #calibrate` to move there and record the new `XACTUAL`.
+		int stepsAtMinLimit = 0;
 
 	public: 
-		/// The current angle of the joint this motor is powering.
+		/// The current angle this joint is at, in radians.
 		float angle;
 
 		/// Manage a stepper motor with the given pins.
-		StepperMotor(byte chipSelectPin, byte enablePin, byte limitSwitchPin, int current, float minLimit, float maxLimit, float stepsPer180, float speed, float accel, String name) : 
-			chipSelectPin(chipSelectPin),
-			enablePin(enablePin),
-			limitSwitchPin(limitSwitchPin),
-			current(current),
-			minLimit(minLimit),
-			maxLimit(maxLimit),
-			stepsPer180(stepsPer180),
-			driver(TMC5160Stepper(SPI, chipSelectPin, 0.075)), 
-			currentSteps(0),
-			speed(speed),
-			accel(accel),
-			name(name) { }
+		StepperMotor(StepperMotorPins pins, StepperMotorConfig config);
 
+		/// Ensures this stepper motor will not interfere with other motors.
+		/// 
+		/// You must call this method on *every* motor before trying to interface with one of them.
 		void presetup();
 
-		/// Initializes the motor.
+		/// Initializes the motor. Must be called *after* #presetup is called on *all* motors.
 		/// 
-		/// If any part of the setup fails, the function will log to the serial monitor and block
-		/// indefinitely. Issues in this function usually result from an issue with the #chipSelectPin
-		/// or the #enablePin.
-		/// 
-		/// Many settings are configured here behind the scenes. For example, #MOTOR_ACCELERATION and 
-		/// #MOTOR_SPEED are both used here. In the future, explore what the different options actually
-		/// do and how to optimize them. 
+		/// The motor needs to be fully powered and on for this function to work. If setup fails, this
+		/// function will log to the serial monitor and block indefinitely.
 		void setup();  
 
+		/// Maintains the state of the motor and searches for problems.
+		/// 
+		/// Currently, this function checks if the limit switch is being pressed and stops the motor.
+		void update();
+
+		/// Stops this motor by setting its target to its current position.
 		void stop();
 
-		void update();  // check if limit switch is pressed
-
-		/// Calibrates the motor by returning to its home position.
+		/// Calibrates the motor.
 		/// 
-		/// Moves backwards until it hits its limit switch, then stops and overrides its internal
-		/// state (including #angle) to a known value.
-		void calibrate();  // calibrates the motor
-
-		/// Whether the motor has reached its destination.
+		/// If there is a limit switch (`pins.limitSwitch != NULL`):
+		/// - Moves toward the limit switch (negative steps) until #isLimitSwitchPressed returns `true`
+		/// - Set `stepsAtMinLimit` to the current position of the motor.
 		/// 
-		/// The TMC backend knows where the motor is trying to go and where it actually is. When 
-		/// the two values match, this returns true. Do not move the arm while this is false. 
-		bool isFinished();
-
-		/// Checks for potential stalls (#didStall) and fixes it (#calibrate).
-		/// 
-		/// For performance, this function does nothing until #nextStallCheck has passed. 
-		/// 
-		/// For now, this function actually hangs indefinitely if it detects a stall. This way,
-		/// the other motors will not move independently which will protect the arm.
-		void fixPotentialStall();
+		/// Since this is usually called in #setup or by itself, this function handles checking the 
+		/// limit switch and stopping by itself in a while loop, which means it is blocking.
+		void calibrate();
 
 		/// Moves the motor to a specific angle, in radians. 
 		/// 
 		/// Differs from #moveBy in that this function receives a target rotation and rotates 
 		/// until it matches (see #isFinished). Use this method in IK mode, where you know where to go. 
-		void moveTo(float newAngle);
+		void moveTo(float radians);
 
 		/// Moves the motor by a given rotation, in radians. 
 		/// 
@@ -168,24 +147,25 @@ class StepperMotor {
 		/// by that amount. Use this method in precision mode, where you move in small increments. 
 		void moveBy(float radians);
 
-		/// Moves the given number of steps. 
+		/// Moves to the given step position. 
 		/// 
-		/// Use in debugging only. In production code, use #moveBy. This method can help determine
-		/// when the conversion factor (#radToSteps) is off, or the motor is misbehaving.
+		/// Use in debugging only. In production code, use #moveTo. This method can help determine
+		/// when #StepperMotorConfig::stepsPer180 is off, or when the motor is misbehaving.
 		void debugMoveToStep(int destination);
 
+		/// Moves by the given amount of steps. 
+		/// 
+		/// Use in debugging only. In production code, use #moveBy. This method can help determine
+		/// when #StepperMotorConfig::stepsPer180 is off, or when the motor is misbehaving.
 		void debugMoveBySteps(int steps);
 		
-		void moveToStep(int destination);
+		/// Whether this motor is still moving.
+		/// 
+		/// Works by comparing #TMC5160Stepper::XACTUAL to #TMC5160Stepper::XTARGET. 
+		bool isMoving();
 
-		/// Checks if the limit switch is activated.
-		///
-		/// Assumes LOW is active since it is declared an INPUT_PULLUP in setup.
-		bool readLimitSwitch();
-
-		void testCal() { 
-			driver.XACTUAL(0);
-		}
+		/// Whether the limit switch is being pressed.
+		bool isLimitSwitchPressed();
 };
 
 #endif
