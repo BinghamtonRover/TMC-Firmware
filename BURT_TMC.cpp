@@ -11,7 +11,7 @@ StepperMotor::StepperMotor(StepperMotorPins pins, StepperMotorConfig config) :
 	driver(TMC5160Stepper(SPI, pins.chipSelect, 0.075)) { }
 
 int StepperMotor::radToSteps(float radians) { 
-	return newAngle * config.stepsPer180 / PI;
+	return newAngle * config.stepsPerRotation / (2*PI);
 }
 
 void StepperMotor::presetup() {
@@ -100,7 +100,7 @@ void StepperMotor::calibrate() {
 		driver.XTARGET(currentSteps);
 	}
 	stop();
-	angle = minLimit;
+	angle = config.minLimit;
 	stepsAtMinLimit = driver.XACTUAL();
 	Serial.println("  Calibration finished");
 }
@@ -108,16 +108,16 @@ void StepperMotor::calibrate() {
 void StepperMotor::moveTo(float radians) {
 	Serial.print("Moving " + name + " to ");
 	Serial.println(radians);
-	if (newAngle > maxLimit || newAngle < minLimit) { 
+	if (radians > config.maxLimit || radians < config.minLimit) { 
 		Serial.print("  ERROR: Out of bounds (valid inputs are ");
-		Serial.print(minLimit);
+		Serial.print(config.minLimit);
 		Serial.print(" to ");
-		Serial.print(maxLimit);
+		Serial.print(config.maxLimit);
 		Serial.println(").");
 		return; 
 	}
 
-	angle = newAngle;
+	angle = radians;
 	targetStep = radToSteps(angle);
 	Serial.print("  That is  ");
 	Serial.print(targetStep);

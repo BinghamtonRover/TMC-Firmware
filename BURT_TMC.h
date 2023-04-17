@@ -11,7 +11,7 @@
 #include "TmcStepper.h"
 
 /// If this is false, all firmware will print to the console instead of using hardware.
-#define IS_CONNECTED true
+#define IS_CONNECTED false
 
 /// The pins that a #StepperMotor.
 struct StepperMotorPins {
@@ -27,10 +27,13 @@ struct StepperMotorPins {
 	/// 
 	/// Set this to NULL to disable limit switches.
 	int limitSwitch;
-}
+};
 
 /// Configuration for a #StepperMotor.
 struct StepperMotorConfig {
+	/// The name of this motor.
+	String name;
+
 	/// The Root Mean Square current to feed the motor, in mA.
 	int current;
 
@@ -49,17 +52,14 @@ struct StepperMotorConfig {
 	float maxLimit;
 
 	/// The amount of steps per 180 degrees, or π radians.
-	int stepsPer180; 
+	int stepsPerRotation; 
 
 	/// The speed of this motor.	
 	float speed;
 
 	/// The acceleration of this motor.
 	float accel;
-
-	/// The name of this motor.
-	String name;
-}
+};
 
 /// Controls a TMC 5160 stepper motor. 
 /// 
