@@ -11,7 +11,7 @@ StepperMotor::StepperMotor(StepperMotorPins pins, StepperMotorConfig config) :
 	driver(TMC5160Stepper(SPI, pins.chipSelect, 0.075)) { }
 
 int StepperMotor::radToSteps(float radians) { 
-	return radians * config.stepsPerRotation / (2*PI);
+	return radians / (2*PI) * config.stepsPerRotation + offset;
 }
 
 void StepperMotor::presetup() {
@@ -22,36 +22,28 @@ void StepperMotor::presetup() {
 
 void StepperMotor::setup() {
 	if (!IS_CONNECTED) return;
-	// TODO: Decide if this is needed: 
-	// See https://github.com/BinghamtonRover/arm-firmware/issues/6
-	// <--
+	Serial.print("Initializing motor " + config.name + "... ");
+
 	pinMode(pins.enable, OUTPUT);
-	pinMode(pins.limitSwitch,INPUT_PULLUP);
+	pinMode(pins.limitSwitch, INPUT_PULLUP);
 	digitalWrite(pins.enable, LOW);
 
-	Serial.print("Initializing pins: ");
-	Serial.print(pins.enable);
-	Serial.print(" and ");
-	Serial.print(pins.chipSelect);
-	Serial.print(" for " + config.name);
-	// -->
 	driver.begin();
 	driver.reset();
 	TMC5160Stepper::IOIN_t ioin{ driver.IOIN() };
 	if (ioin.version == 0xFF || ioin.version == 0) {
-    Serial.print("Driver communication error on motor: ");
-    Serial.println(config.name);
+    Serial.println("\nDriver communication error on motor: " + config.name);
     while(true);
 	} else if (ioin.sd_mode) {
-    Serial.println("Motor is configured for Step & Dir mode: ");
-    Serial.println(config.name);
+    Serial.println("\nMotor is configured for Step & Dir mode: " + config.name);
     while(true);
 	} else if (ioin.drv_enn) {
-    Serial.println("Motor is not hardware enabled: ");
-    Serial.println(config.name);
+    Serial.println("Motor is not hardware enabled: " + config.name);
     while(true);
 	}
 
+	// TODO: Decide if this is needed: 
+	// See https://github.com/BinghamtonRover/arm-firmware/issues/6
 	digitalWrite(pins.enable, HIGH);  // disable driver to clear the cache
 	delay(1000);
 	digitalWrite(pins.enable, LOW);   // re-enable drive, to start loading in parameters
@@ -70,6 +62,8 @@ void StepperMotor::setup() {
 	driver.vstop(100);
 	driver.vstart(100);
 	driver.RAMPMODE(0);
+
+	Serial.println("Done!");
 }
 
 void StepperMotor::update() {
@@ -86,41 +80,39 @@ void StepperMotor::stop() {
 
 void StepperMotor::calibrate() { 
 	if (pins.limitSwitch == 0 || !IS_CONNECTED) {
-		Serial.print("Not calibrating motor without limit switch: " + config.name);
+		Serial.println("Not calibrating motor without limit switch: " + config.name);
 		return;
 	} else {
-		Serial.print("Calibrating motor: ");
-		Serial.println(config.name);
+		Serial.print("Calibrating motor: " + config.name + "... ");
 	}
 
 	while(!isLimitSwitchPressed()) {
-		// This will technically overshoot the limit switch, but we call [stop]
 		targetStep -= 10;
 		driver.XTARGET(targetStep);
 	}
-	stop();
+	stop();  // the while loop overshoots the limit switch and will keep going
 	angle = config.minLimit;
-	stepsAtMinLimit = driver.XACTUAL();
-	Serial.println("  Calibration finished");
+	offset = driver.XACTUAL() - radToSteps(angle);
+	Serial.println("Done!");
 }
 
 void StepperMotor::moveTo(float radians) {
 	Serial.print("Moving " + config.name + " to ");
 	Serial.println(radians);
-	if (radians > config.maxLimit || radians < config.minLimit) { 
-		Serial.print("  ERROR: Out of bounds (valid inputs are ");
-		Serial.print(config.minLimit);
-		Serial.print(" to ");
-		Serial.print(config.maxLimit);
-		Serial.println(").");
-		return; 
-	}
+	// if (radians > config.maxLimit || radians < config.minLimit) { 
+	// 	Serial.print("  ERROR: Out of bounds (valid inputs are ");
+	// 	Serial.print(config.minLimit);
+	// 	Serial.print(" to ");
+	// 	Serial.print(config.maxLimit);
+	// 	Serial.println(").");
+	// 	return; 
+	// }
 
 	angle = radians;
 	targetStep = radToSteps(angle);
 	Serial.print("  That is  ");
 	Serial.print(targetStep);
-	Serial.print(" steps.");
+	Serial.println(" steps.");
 
 	if (IS_CONNECTED) driver.XTARGET(targetStep);
 	else Serial.println("  Motor not connected, not moving");
@@ -132,9 +124,10 @@ void StepperMotor::moveBy(float radians) {
 
 void StepperMotor::debugMoveToStep(int steps) {
 	Serial.print("Moving " + config.name + " to ");
-	Serial.print(steps);
+	Serial.println(steps);
 
 	targetStep = steps;
+	angle = radToSteps(steps);
 	if (IS_CONNECTED) driver.XTARGET(targetStep);
 	else Serial.println("  Motor not connected, not moving");
 }

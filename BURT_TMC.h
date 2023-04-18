@@ -11,7 +11,7 @@
 #include "TmcStepper.h"
 
 /// If this is false, all firmware will print to the console instead of using hardware.
-#define IS_CONNECTED false
+#define IS_CONNECTED true
 
 /// The pins that a #StepperMotor.
 struct StepperMotorPins {
@@ -97,7 +97,7 @@ class StepperMotor {
 		/// 
 		/// Since the TMC5160 sets `XACTUAL` to zero on boot, this value changes every startup. If there
 		/// is a limit switch, use #calibrate` to move there and record the new `XACTUAL`.
-		int stepsAtMinLimit = 0;
+		int offset = 0;
 
 	public: 
 		/// The current angle this joint is at, in radians.
