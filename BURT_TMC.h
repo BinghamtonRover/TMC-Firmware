@@ -51,14 +51,26 @@ struct StepperMotorConfig {
 	/// WARNING: Moving higher than this value can cause damage to the arm.
 	float maxLimit;
 
-	/// The amount of steps per 180 degrees, or π radians.
-	int stepsPerRotation; 
+	/// The gearbox ratio on this stepper motor.
+	/// 
+	/// Used to calculate #stepsPerRotation
+	int gearboxRatio;
+
+	/// The number of steps the *motor* will need to turn a full rotation, without microstepping.
+	/// 
+	/// Used to calculate #stepsPerRotation. Most stepper motors use 200.
+	int motorStepsPerRotation = 200;
 
 	/// The speed of this motor.	
 	float speed;
 
 	/// The acceleration of this motor.
 	float accel;
+
+	/// The amount of steps per 360 degrees, or 2π radians.
+	/// 
+	/// This is #motorStepsPerRotation times #gearboxRatio times 256 microsteps per step.
+	int stepsPerRotation();
 };
 
 /// Controls a TMC 5160 stepper motor. 

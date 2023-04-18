@@ -5,13 +5,17 @@
 
 #include "BURT_TMC.h"
 
+int StepperMotorConfig::stepsPerRotation() {
+	return motorStepsPerRotation * gearboxRatio * 256;
+}
+
 StepperMotor::StepperMotor(StepperMotorPins pins, StepperMotorConfig config) : 
 	pins(pins),
 	config(config),
 	driver(TMC5160Stepper(SPI, pins.chipSelect, 0.075)) { }
 
 int StepperMotor::radToSteps(float radians) { 
-	return radians / (2*PI) * config.stepsPerRotation + offset;
+	return radians / (2*PI) * config.stepsPerRotation() + offset;
 }
 
 void StepperMotor::presetup() {
