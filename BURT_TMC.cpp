@@ -15,7 +15,11 @@ StepperMotor::StepperMotor(StepperMotorPins pins, StepperMotorConfig config) :
 	driver(TMC5160Stepper(SPI, pins.chipSelect, 0.075)) { }
 
 int StepperMotor::radToSteps(float radians) { 
-	return radians / (2*PI) * config.stepsPerRotation() + offset;
+	return radians / (2*PI) * config.stepsPerRotation();
+}
+
+float StepperMotor::stepsToRad(int steps) {
+	return (2 * PI * (float) steps) / config.stepsPerRotation();
 }
 
 void StepperMotor::presetup() {
@@ -73,13 +77,20 @@ void StepperMotor::setup() {
 void StepperMotor::update() {
 	if (!IS_CONNECTED) return;
 	bool isMovingDown = driver.XTARGET() < driver.XACTUAL();
-	if (isLimitSwitchPressed() && isMovingDown) stop();
+	if (isLimitSwitchPressed() && isMovingDown) {
+		Serial.println("  Motor " + config.name + " hit its limit switch!"); 
+		stop();
+	}
 }
 
 void StepperMotor::stop() {
 	if (!IS_CONNECTED) return;
 	driver.XTARGET(driver.XACTUAL());
 	targetStep = driver.XACTUAL();
+	angle = stepsToRad(targetStep);
+	Serial.print("  Motor " + config.name + " is now at ");
+	Serial.print(angle);
+	Serial.println(" radians");
 }
 
 void StepperMotor::calibrate() { 
@@ -94,50 +105,66 @@ void StepperMotor::calibrate() {
 		targetStep -= 10;
 		driver.XTARGET(targetStep);
 	}
+	if (!isLimitSwitchPressed()) return calibrate();
 	stop();  // the while loop overshoots the limit switch and will keep going
-	angle = config.minLimit;
+	angle = config.limitSwitchPosition;
 	offset = driver.XACTUAL() - radToSteps(angle);
+	targetStep = driver.XACTUAL();
 	Serial.println("Done!");
 }
 
 void StepperMotor::moveTo(float radians) {
 	Serial.print("Moving " + config.name + " to ");
 	Serial.println(radians);
-	// if (radians > config.maxLimit || radians < config.minLimit) { 
-	// 	Serial.print("  ERROR: Out of bounds (valid inputs are ");
-	// 	Serial.print(config.minLimit);
-	// 	Serial.print(" to ");
-	// 	Serial.print(config.maxLimit);
-	// 	Serial.println(").");
-	// 	return; 
-	// }
 
-	angle = radians;
-	targetStep = radToSteps(angle);
-	Serial.print("  That is  ");
-	Serial.print(targetStep);
-	Serial.println(" steps.");
-
-	if (IS_CONNECTED) driver.XTARGET(targetStep);
-	else Serial.println("  Motor not connected, not moving");
+	float distance = radians - angle;
+	moveBy(distance);
 }
 
 void StepperMotor::moveBy(float radians) {
-	moveTo(angle + radians);
+	Serial.print("Moving " + config.name + " by ");
+	Serial.print(radians);
+	Serial.println(" radians");
+	float targetAngle = angle + radians;
+	if (targetAngle > config.maxLimit || targetAngle < config.minLimit) { 
+		Serial.print("  ERROR: Out of bounds (valid inputs are ");
+		Serial.print(config.minLimit);
+		Serial.print(" to ");
+		Serial.print(config.maxLimit);
+		Serial.println(").");
+		return; 
+	}
+
+	int distance = radToSteps(radians);
+	if (config.isPositive) targetStep += distance;
+	else targetStep -= distance;
+	angle = targetAngle;
+
+	if (IS_CONNECTED) {
+		driver.XTARGET(targetStep);
+		Serial.print("  Motor " + config.name + " is now at ");
+		Serial.print(angle);
+		Serial.println(" radians");
+		Serial.println("Done");
+	} else {
+		Serial.println("  Motor not connected, not moving");
+	}
 }
 
 void StepperMotor::debugMoveToStep(int steps) {
 	Serial.print("Moving " + config.name + " to ");
 	Serial.println(steps);
 
-	targetStep = steps;
-	angle = radToSteps(steps);
-	if (IS_CONNECTED) driver.XTARGET(targetStep);
-	else Serial.println("  Motor not connected, not moving");
+	int distance = steps - targetStep;
+	debugMoveBySteps(distance);
 }
 
 void StepperMotor::debugMoveBySteps(int steps) {
-	debugMoveToStep(targetStep + steps);
+	targetStep += steps;
+	angle = stepsToRad(targetStep);
+
+	if (IS_CONNECTED) driver.XTARGET(targetStep);
+	else Serial.println("  Motor not connected, not moving");
 }
 
 bool StepperMotor::isMoving() { 

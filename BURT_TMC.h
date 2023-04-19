@@ -42,6 +42,13 @@ struct StepperMotorConfig {
 	/// If there is a limit switch, it is located here. For continuous motion, use `-INFINITY`.
 	/// 
 	/// WARNING: Moving lower than this value can cause damage to the arm. 
+	float limitSwitchPosition;
+
+	/// The lower physical bound for this motor, in radians from the horizontal.
+	/// 
+	/// If there is a limit switch, it is located here. For continuous motion, use `-INFINITY`.
+	/// 
+	/// WARNING: Moving lower than this value can cause damage to the arm. 
 	float minLimit;
 
 	/// The upper physical bound for this motor, in radians from the horizontal.
@@ -50,6 +57,9 @@ struct StepperMotorConfig {
 	/// 
 	/// WARNING: Moving higher than this value can cause damage to the arm.
 	float maxLimit;
+
+	/// Does increasing the step count increase the radians?
+	bool isPositive;
 
 	/// The gearbox ratio on this stepper motor.
 	/// 
@@ -98,6 +108,9 @@ class StepperMotor {
 
 		/// Converts the desired radians to a number of steps, using #StepperMotorConfig::stepsPer180.
 		int radToSteps(float radians);
+
+		/// Converts the given step count to radians.
+		float stepsToRad(int steps);
 
 		/// The step this motor is at or trying to get to.
 		/// 
