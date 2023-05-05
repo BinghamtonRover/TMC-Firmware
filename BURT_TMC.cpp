@@ -76,11 +76,10 @@ void StepperMotor::setup() {
 
 void StepperMotor::update() {
 	if (!IS_CONNECTED) return;
-	bool isMovingDown = driver.XTARGET() < driver.XACTUAL();
-	if (isLimitSwitchPressed() && isMovingDown) {
-		Serial.println("  Motor " + config.name + " hit its limit switch!"); 
-		stop();
-	}
+	bool isMovingTowardsSwitch = config.isPositive
+		? driver.XTARGET() > driver.XACTUAL()
+		: driver.XTARGET() < driver.XACTUAL();
+	if (isLimitSwitchPressed() && isMovingTowardsSwitch) stop();
 }
 
 void StepperMotor::stop() {
@@ -94,7 +93,7 @@ void StepperMotor::stop() {
 }
 
 void StepperMotor::calibrate() { 
-	if (pins.limitSwitch == 0 || !IS_CONNECTED) {
+	if (pins.limitSwitch == -1 || !IS_CONNECTED) {
 		Serial.println("Not calibrating motor without limit switch: " + config.name);
 		return;
 	} else {
@@ -173,8 +172,8 @@ bool StepperMotor::isMoving() {
 }
 
 bool StepperMotor::isLimitSwitchPressed() {
-	if (pins.limitSwitch == 0 || !IS_CONNECTED) return false;
-	else return digitalRead(pins.limitSwitch) == LOW;
+	if (pins.limitSwitch == -1 || !IS_CONNECTED) return false;
+	else return digitalRead(pins.limitSwitch) == HIGH;
 }
 
 // The following close bracket marks the file for Doxygen
