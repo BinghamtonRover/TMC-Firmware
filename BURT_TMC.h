@@ -25,7 +25,7 @@ struct StepperMotorPins {
 
 	/// The limit switch associated for this motor. 
 	/// 
-	/// Set this to NULL to disable limit switches.
+	/// Set this to -1 to disable limit switches.
 	int limitSwitch;
 };
 
@@ -60,6 +60,9 @@ struct StepperMotorConfig {
 
 	/// Does increasing the step count increase the radians?
 	bool isPositive;
+	
+	/// The direction of the limit switch, either +1 or -1.
+	int limitSwitchDirection;
 
 	/// The gearbox ratio on this stepper motor.
 	/// 

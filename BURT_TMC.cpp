@@ -76,7 +76,7 @@ void StepperMotor::setup() {
 
 void StepperMotor::update() {
 	if (!IS_CONNECTED) return;
-	bool isMovingTowardsSwitch = config.isPositive
+	bool isMovingTowardsSwitch = config.limitSwitchDirection > 0
 		? driver.XTARGET() > driver.XACTUAL()
 		: driver.XTARGET() < driver.XACTUAL();
 	if (isLimitSwitchPressed() && isMovingTowardsSwitch) stop();
@@ -101,7 +101,7 @@ void StepperMotor::calibrate() {
 	}
 
 	while(!isLimitSwitchPressed()) {
-		targetStep -= 10;
+		targetStep += 10 * config.limitSwitchDirection;
 		driver.XTARGET(targetStep);
 	}
 	if (!isLimitSwitchPressed()) return calibrate();
@@ -173,7 +173,7 @@ bool StepperMotor::isMoving() {
 
 bool StepperMotor::isLimitSwitchPressed() {
 	if (pins.limitSwitch == -1 || !IS_CONNECTED) return false;
-	else return digitalRead(pins.limitSwitch) == HIGH;
+	else return digitalRead(pins.limitSwitch) == LOW;
 }
 
 // The following close bracket marks the file for Doxygen
