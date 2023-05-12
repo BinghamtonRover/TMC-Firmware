@@ -84,6 +84,7 @@ void StepperMotor::update() {
 
 void StepperMotor::stop() {
 	if (!IS_CONNECTED) return;
+	Serial.println("Motor " + config.name + " needs to stop!");
 	driver.XTARGET(driver.XACTUAL());
 	targetStep = driver.XACTUAL();
 	angle = stepsToRad(targetStep);
