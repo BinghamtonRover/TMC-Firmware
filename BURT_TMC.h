@@ -29,7 +29,7 @@ struct StepperMotorConfig {
 	/// The name of this motor. Used for debugging.
 	String name;
 
-	String unitName;
+	String unitName = "radians";
 
 	/// The Root Mean Square current to feed the motor, in mA.
 	int current;
