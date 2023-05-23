@@ -22,82 +22,68 @@ struct StepperMotorPins {
 	/// 
 	/// TMC5160 chips are enable-low, which means this must be written LOW to work.
 	int enable;
-
-	/// The limit switch associated for this motor. 
-	/// 
-	/// Set this to -1 to disable limit switches.
-	int limitSwitch;
 };
 
 /// Configuration for a #StepperMotor.
 struct StepperMotorConfig {
-	/// The name of this motor.
+	/// The name of this motor. Used for debugging.
 	String name;
+
+	String unitName;
 
 	/// The Root Mean Square current to feed the motor, in mA.
 	int current;
 
-	/// The lower physical bound for this motor, in radians from the horizontal.
-	/// 
-	/// If there is a limit switch, it is located here. For continuous motion, use `-INFINITY`.
-	/// 
-	/// WARNING: Moving lower than this value can cause damage to the arm. 
-	float limitSwitchPosition;
-
-	/// The lower physical bound for this motor, in radians from the horizontal.
-	/// 
-	/// If there is a limit switch, it is located here. For continuous motion, use `-INFINITY`.
-	/// 
-	/// WARNING: Moving lower than this value can cause damage to the arm. 
-	float minLimit;
-
-	/// The upper physical bound for this motor, in radians from the horizontal.
-	/// 
-	/// If there is a limit switch, it is at #minLimit. For continuous motion, use `INFINITY`.
-	/// 
-	/// WARNING: Moving higher than this value can cause damage to the arm.
-	float maxLimit;
-
-	/// Does increasing the step count increase the radians?
-	bool isPositive;
-	
-	/// The direction of the limit switch, either +1 or -1.
-	int limitSwitchDirection;
-
-	/// The gearbox ratio on this stepper motor.
-	/// 
-	/// Used to calculate #stepsPerRotation
-	int gearboxRatio;
-
-	/// The number of steps the *motor* will need to turn a full rotation, without microstepping.
-	/// 
-	/// Used to calculate #stepsPerRotation. Most stepper motors use 200.
-	int motorStepsPerRotation = 200;
-
-	/// The speed of this motor.	
+	/// The speed of the motor, units unknown.
 	float speed;
 
-	/// The acceleration of this motor.
+	/// The magnitude of the acceleration of the motor, units unknown.
 	float accel;
 
-	/// The amount of steps per 360 degrees, or 2π radians.
-	/// 
-	/// This is #motorStepsPerRotation times #gearboxRatio times 256 microsteps per step.
-	int stepsPerRotation();
+	/// The minimum angular position, in radians. Leave blank for non-limited motion.
+	float minLimit = -INFINITY;
+
+	/// The maximum angular position, in radians. Leave blank for non-limited motion.
+	float maxLimit = INFINITY;
+
+	bool isPositive;
+
+	float gearboxRatio = 1.0;
+
+	float conversionFactor = 200 * 256 * gearboxRatio;
+
+	float toUnits = (2*PI) / (conversionFactor);
+
+	float toSteps = conversionFactor / (2*PI);
+};
+
+/// Calibrates a stepper motor.
+/// 
+/// A limit switch (or sensor) serves to calibrate a stepper motor by allowing it to move to a known
+/// #position after powering on.
+struct LimitSwitch {
+	/// The pin this switch or sensor is connected to.
+	int pin = -1;
+
+	/// The value that the #pin should read if the switch or sensor is activated.
+	int triggeredValue;
+
+	/// Whether to approach this switch or sensor by moving positive (+1) or negative (-1) steps.
+	int direction;
+
+	/// The position this switch or sensor is at, in terms of #StepConfig::stepsToPosition. For example,
+	/// a rotating arm might have a limit switch at 90 degrees (or pi / 2 rad). This field is useful
+	/// when placing a limit switch at #StepperMotorConig::minLimit or #StepperMotorConfig::maxLimit.
+	float position;
+
+	int offset = 0;
 };
 
 /// Controls a TMC 5160 stepper motor. 
 /// 
-/// This class drives a stepper motor that may have a few restrictions: 
-/// - If $StepperMotorPins::limitSwitch is non-null, there is a limit switch at #StepperMotorConfig::minLimit
-/// - This motor will never move lower than the limit switch, or higher than #StepperMotorConfig::maxLimit
-/// 
-/// For a continuous motor (with no limit switch), use `INFINITY` and `-INFINITY` for the limits. 
-/// For a motor with a limit switch, this setup assumes the joint is free to move in the *positive*
-/// direction away from the switch -- in other words, negative steps is towards the switch.
-/// 
-/// When using multiple instances of this class, be sure to call #presetup on *all* of them first, 
-/// and only then call #setup on each of them. Then you can use #moveTo or #moveBy as desired. 
+/// - In `setup`, call #presetup for *every* motor you have, *then* call #setup on each
+/// - After a motor has been #setup, call #calibrate on it. Does nothing with no limit switch
+/// - In `loop`, call #update for each motor you have
 class StepperMotor { 
 	private: 
 		/// The pins this motor is attached to.
@@ -106,33 +92,15 @@ class StepperMotor {
 		/// The configuration for this stepper motor.
 		StepperMotorConfig config;
 
+		/// The limit sensor for this motor. Leave blank if none are attached.
+		LimitSwitch limitSwitch;
+
 		/// The TMC instance for this motor, backed by the `TMCStepper` library.
 		TMC5160Stepper driver;
 
-		/// Converts the desired radians to a number of steps, using #StepperMotorConfig::stepsPer180.
-		int radToSteps(float radians);
-
-		/// Converts the given step count to radians.
-		float stepsToRad(int steps);
-
-		/// The step this motor is at or trying to get to.
-		/// 
-		/// When moving, this is identical to #TMC5160Stepper::XTARGET. When stationary, this is the
-		/// same as #TMC5160Stepper::XACTUAL. Use this when you do not care whether the arm is moving.
-		int targetStep;
-
-		/// The step that #TMC5160Stepper::XACTUAL would return at #StepperMotorConfig::minLimit.
-		/// 
-		/// Since the TMC5160 sets `XACTUAL` to zero on boot, this value changes every startup. If there
-		/// is a limit switch, use #calibrate` to move there and record the new `XACTUAL`.
-		int offset = 0;
-
 	public: 
-		/// The current angle this joint is at, in radians.
-		float angle;
-
-		/// Manage a stepper motor with the given pins.
-		StepperMotor(StepperMotorPins pins, StepperMotorConfig config);
+		/// Manage a stepper motor with the given configuration.
+		StepperMotor(StepperMotorPins pins, StepperMotorConfig config, LimitSwitch limitSwitch);
 
 		/// Ensures this stepper motor will not interfere with other motors.
 		/// 
@@ -143,25 +111,25 @@ class StepperMotor {
 		/// 
 		/// The motor needs to be fully powered and on for this function to work. If setup fails, this
 		/// function will log to the serial monitor and block indefinitely.
-		void setup();  
-
-		/// Maintains the state of the motor and searches for problems.
-		/// 
-		/// Currently, this function checks if the limit switch is being pressed and stops the motor.
-		void update();
-
-		/// Stops this motor by setting its target to its current position.
-		void stop();
+		void setup();
 
 		/// Calibrates the motor.
 		/// 
-		/// If there is a limit switch (`pins.limitSwitch != NULL`):
-		/// - Moves toward the limit switch (negative steps) until #isLimitSwitchPressed returns `true`
-		/// - Set `stepsAtMinLimit` to the current position of the motor.
+		/// If there is a limit switch (`limitSwitch.pin != -1`):
+		/// - Moves toward the limit switch (#LimitSwitch::direction) until #isLimitSwitchPressed is `true`
+		/// - Set #stepsAtLimitSensor to the current position of the motor (`driver.XACTUAL`)
 		/// 
-		/// Since this is usually called in #setup or by itself, this function handles checking the 
-		/// limit switch and stopping by itself in a while loop, which means it is blocking.
+		/// Since this is usually in `setup` (where `loop` is unavailable) this function handles checking
+		/// the limit switch and stopping by itself in a while loop, which means it is blocking.
 		void calibrate();
+
+		/// Maintains the state of the motor and searches for problems, calling #stop if needed.
+		void update();
+
+		/// Stops this motor by setting its target to its current position.
+		/// 
+		/// Call this in #update if the motor is passing its limits as defined by #StepperMotorConfig.
+		void stop();
 
 		/// Moves the motor to a specific angle, in radians. 
 		/// 
@@ -179,21 +147,24 @@ class StepperMotor {
 		/// 
 		/// Use in debugging only. In production code, use #moveTo. This method can help determine
 		/// when #StepperMotorConfig::stepsPer180 is off, or when the motor is misbehaving.
-		void debugMoveToStep(int destination);
+		void moveToSteps(int destination);
 
 		/// Moves by the given amount of steps. 
 		/// 
 		/// Use in debugging only. In production code, use #moveBy. This method can help determine
 		/// when #StepperMotorConfig::stepsPer180 is off, or when the motor is misbehaving.
-		void debugMoveBySteps(int steps);
+		void moveBySteps(int steps);
 		
 		/// Whether this motor is still moving.
 		/// 
-		/// Works by comparing #TMC5160Stepper::XACTUAL to #TMC5160Stepper::XTARGET. 
+		/// Compares #TMC5160Stepper::XACTUAL to #TMC5160Stepper::XTARGET. 
 		bool isMoving();
 
 		/// Whether the limit switch is being pressed.
 		bool isLimitSwitchPressed();
+
+		float getPosition();
+		float getTarget();
 };
 
 #endif

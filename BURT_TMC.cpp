@@ -5,22 +5,13 @@
 
 #include "BURT_TMC.h"
 
-int StepperMotorConfig::stepsPerRotation() {
-	return motorStepsPerRotation * gearboxRatio * 256;
-}
+// ================== StepperMotor ==================
 
-StepperMotor::StepperMotor(StepperMotorPins pins, StepperMotorConfig config) : 
+StepperMotor::StepperMotor(StepperMotorPins pins, StepperMotorConfig config, LimitSwitch limitSwitch) : 
 	pins(pins),
 	config(config),
+	limitSwitch(limitSwitch),
 	driver(TMC5160Stepper(SPI, pins.chipSelect, 0.075)) { }
-
-int StepperMotor::radToSteps(float radians) { 
-	return radians / (2*PI) * config.stepsPerRotation();
-}
-
-float StepperMotor::stepsToRad(int steps) {
-	return (2 * PI * (float) steps) / config.stepsPerRotation();
-}
 
 void StepperMotor::presetup() {
 	if (!IS_CONNECTED) return;
@@ -33,8 +24,8 @@ void StepperMotor::setup() {
 	Serial.print("Initializing motor " + config.name + "... ");
 
 	pinMode(pins.enable, OUTPUT);
-	pinMode(pins.limitSwitch, INPUT_PULLUP);
 	digitalWrite(pins.enable, LOW);
+	if (limitSwitch.pin != -1) pinMode(limitSwitch.pin, INPUT_PULLUP);
 
 	driver.begin();
 	driver.reset();
@@ -50,7 +41,7 @@ void StepperMotor::setup() {
     while(true);
 	}
 
-	// TODO: Decide if this is needed: 
+	// TODO: Decide if everything below this is needed: 
 	// See https://github.com/BinghamtonRover/arm-firmware/issues/6
 	digitalWrite(pins.enable, HIGH);  // disable driver to clear the cache
 	delay(1000);
@@ -76,95 +67,103 @@ void StepperMotor::setup() {
 
 void StepperMotor::update() {
 	if (!IS_CONNECTED) return;
-	bool isMovingTowardsSwitch = config.limitSwitchDirection > 0
+	bool isMovingTowardsSwitch = limitSwitch.direction > 0
 		? driver.XTARGET() > driver.XACTUAL()
 		: driver.XTARGET() < driver.XACTUAL();
-	if (isLimitSwitchPressed() && isMovingTowardsSwitch) stop();
+	bool isPastLimitSwitch = limitSwitch.direction > 0
+		? (driver.XACTUAL() * config.toUnits) > limitSwitch.position
+		: (driver.XACTUAL() * config.toUnits) < limitSwitch.position;
+	if (isLimitSwitchPressed() && isMovingTowardsSwitch && isPastLimitSwitch) stop();
 }
 
 void StepperMotor::stop() {
 	if (!IS_CONNECTED) return;
-	Serial.println("Motor " + config.name + " needs to stop!");
 	driver.XTARGET(driver.XACTUAL());
-	targetStep = driver.XACTUAL();
-	angle = stepsToRad(targetStep);
-	Serial.print("  Motor " + config.name + " is now at ");
-	Serial.print(angle);
-	Serial.println(" radians");
+	Serial.print("Motor " + config.name + " needs to stop at ");
+	Serial.print(getPosition());
+	Serial.println(" " + config.unitName);
 }
 
 void StepperMotor::calibrate() { 
-	if (pins.limitSwitch == -1 || !IS_CONNECTED) {
+	if (limitSwitch.pin == -1 || !IS_CONNECTED) {
 		Serial.println("Not calibrating motor without limit switch: " + config.name);
 		return;
 	} else {
 		Serial.print("Calibrating motor: " + config.name + "... ");
 	}
 
+	int steps = driver.XACTUAL();
 	while(!isLimitSwitchPressed()) {
-		targetStep += 10 * config.limitSwitchDirection;
-		driver.XTARGET(targetStep);
+		steps += 10 * limitSwitch.direction;
+		driver.XTARGET(steps);
 	}
 	if (!isLimitSwitchPressed()) return calibrate();
 	stop();  // the while loop overshoots the limit switch and will keep going
-	angle = config.limitSwitchPosition;
-	offset = driver.XACTUAL() - radToSteps(angle);
-	targetStep = driver.XACTUAL();
+	limitSwitch.offset = driver.XACTUAL() * limitSwitch.direction;
 	Serial.println("Done!");
 }
 
-void StepperMotor::moveTo(float radians) {
-	Serial.print("Moving " + config.name + " to ");
-	Serial.println(radians);
-
-	float distance = radians - angle;
-	moveBy(distance);
+void StepperMotor::moveTo(float position) {
+	moveBy(position - getPosition());
 }
 
-void StepperMotor::moveBy(float radians) {
+void StepperMotor::moveBy(float distance) {
+	// When called by [moveTo], this will be the same as the [position] parameter.
+	float targetPosition = getPosition() + distance;
+	Serial.print("Motor " + config.name + " is at ");
+	Serial.print(driver.XACTUAL());
+	Serial.print(" steps and ");
+	Serial.print(getPosition());
+	Serial.println(" " + config.unitName);
+
 	Serial.print("Moving " + config.name + " by ");
-	Serial.print(radians);
-	Serial.println(" radians");
-	float targetAngle = angle + radians;
-	if (targetAngle > config.maxLimit || targetAngle < config.minLimit) { 
-		Serial.print("  ERROR: Out of bounds (valid inputs are ");
+	Serial.print(distance);
+	Serial.print(" " + config.unitName + ". That is ");
+	Serial.print(targetPosition);
+	Serial.println(" " + config.unitName);
+
+	// Check bounds
+	if (targetPosition > config.maxLimit || targetPosition < config.minLimit) { 
+		Serial.print("  ERROR: ");
+		Serial.print(targetPosition);
+		Serial.print(" is out of bounds (valid inputs are ");
 		Serial.print(config.minLimit);
 		Serial.print(" to ");
 		Serial.print(config.maxLimit);
-		Serial.println(").");
+		Serial.println(config.unitName + ").");
 		return; 
 	}
 
-	int distance = radToSteps(radians);
-	if (config.isPositive) targetStep += distance;
-	else targetStep -= distance;
-	angle = targetAngle;
-
+	targetPosition -= limitSwitch.offset * config.toUnits;
+	int steps = (distance * config.toSteps);
+	int targetStep = config.isPositive
+		? driver.XACTUAL() + steps
+		: driver.XACTUAL() - steps;
 	if (IS_CONNECTED) {
 		driver.XTARGET(targetStep);
-		Serial.print("  Motor " + config.name + " is now at ");
-		Serial.print(angle);
-		Serial.println(" radians");
-		Serial.println("Done");
+		Serial.print("  Motor " + config.name + " is moving to ");
+		Serial.print(getTarget());
+		Serial.println(" " + config.unitName);
 	} else {
 		Serial.println("  Motor not connected, not moving");
 	}
 }
 
-void StepperMotor::debugMoveToStep(int steps) {
+void StepperMotor::moveToSteps(int steps) {
 	Serial.print("Moving " + config.name + " to ");
-	Serial.println(steps);
+	Serial.print(steps + limitSwitch.offset);
+	Serial.print(" steps... ");
 
-	int distance = steps - targetStep;
-	debugMoveBySteps(distance);
+	steps += limitSwitch.offset;
+	moveBySteps(steps - driver.XACTUAL());
 }
 
-void StepperMotor::debugMoveBySteps(int steps) {
-	targetStep += steps;
-	angle = stepsToRad(targetStep);
-
-	if (IS_CONNECTED) driver.XTARGET(targetStep);
+void StepperMotor::moveBySteps(int steps) {
+	if (IS_CONNECTED) driver.XTARGET(driver.XACTUAL() + steps);
 	else Serial.println("  Motor not connected, not moving");
+	Serial.print("Motor [" + config.name + "] is moving to ");
+	Serial.print(driver.XTARGET());
+	Serial.println(" steps");
 }
 
 bool StepperMotor::isMoving() { 
@@ -173,8 +172,16 @@ bool StepperMotor::isMoving() {
 }
 
 bool StepperMotor::isLimitSwitchPressed() {
-	if (pins.limitSwitch == -1 || !IS_CONNECTED) return false;
-	else return digitalRead(pins.limitSwitch) == LOW;
+	if (limitSwitch.pin == -1 || !IS_CONNECTED) return false;
+	else return digitalRead(limitSwitch.pin) == limitSwitch.triggeredValue;
+}
+
+float StepperMotor::getPosition() {
+	return (driver.XACTUAL() - limitSwitch.offset) * config.toUnits;
+}
+
+float StepperMotor::getTarget() {
+	return (driver.XTARGET() - limitSwitch.offset) * config.toUnits;
 }
 
 // The following close bracket marks the file for Doxygen
