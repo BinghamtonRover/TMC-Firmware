@@ -70,10 +70,7 @@ void StepperMotor::update() {
 	bool isMovingTowardsSwitch = limitSwitch.direction > 0
 		? driver.XTARGET() > driver.XACTUAL()
 		: driver.XTARGET() < driver.XACTUAL();
-	bool isPastLimitSwitch = limitSwitch.direction > 0
-		? (driver.XACTUAL() * config.toUnits) > limitSwitch.position
-		: (driver.XACTUAL() * config.toUnits) < limitSwitch.position;
-	if (isLimitSwitchPressed() && isMovingTowardsSwitch && isPastLimitSwitch) stop();
+	if (isLimitSwitchPressed() && isMovingTowardsSwitch) stop();
 }
 
 void StepperMotor::stop() {
@@ -99,7 +96,7 @@ void StepperMotor::calibrate() {
 	}
 	if (!isLimitSwitchPressed()) return calibrate();
 	stop();  // the while loop overshoots the limit switch and will keep going
-	limitSwitch.offset = driver.XACTUAL() * limitSwitch.direction;
+	limitSwitch.offset = driver.XACTUAL();
 	Serial.println("Done!");
 }
 
@@ -134,7 +131,6 @@ void StepperMotor::moveBy(float distance) {
 		return; 
 	}
 
-	targetPosition -= limitSwitch.offset * config.toUnits;
 	int steps = (distance * config.toSteps);
 	int targetStep = config.isPositive
 		? driver.XACTUAL() + steps
