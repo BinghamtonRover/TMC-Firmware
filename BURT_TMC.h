@@ -106,9 +106,6 @@ class StepperMotor {
 		/// The configuration for this stepper motor.
 		StepperMotorConfig config;
 
-		/// The TMC instance for this motor, backed by the `TMCStepper` library.
-		TMC5160Stepper driver;
-
 		/// Converts the desired radians to a number of steps, using #StepperMotorConfig::stepsPer180.
 		int radToSteps(float radians);
 
@@ -128,6 +125,9 @@ class StepperMotor {
 		int offset = 0;
 
 	public: 
+		/// The TMC instance for this motor, backed by the `TMCStepper` library.
+		TMC5160Stepper driver;
+
 		/// The current angle this joint is at, in radians.
 		float angle;
 
