@@ -165,6 +165,7 @@ class StepperMotor {
 
 		float getPosition();
 		float getTarget();
+		void block();
 };
 
 #endif

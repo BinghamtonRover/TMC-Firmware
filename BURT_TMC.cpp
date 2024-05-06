@@ -5,6 +5,8 @@
 
 #include "BURT_TMC.h"
 
+const int blockDelay = 10;  // ms
+
 // ================== StepperMotor ==================
 
 StepperMotor::StepperMotor(StepperMotorPins pins, StepperMotorConfig config, LimitSwitch limitSwitch) : 
@@ -135,6 +137,10 @@ float StepperMotor::getPosition() {
 
 float StepperMotor::getTarget() {
 	return (driver.XTARGET() - limitSwitch.offset) * config.toUnits;
+}
+
+void StepperMotor::block() {
+	while (isMoving()) delay(blockDelay);
 }
 
 // The following close bracket marks the file for Doxygen
