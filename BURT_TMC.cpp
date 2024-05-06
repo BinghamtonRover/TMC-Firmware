@@ -76,18 +76,10 @@ void StepperMotor::update() {
 void StepperMotor::stop() {
 	if (!IS_CONNECTED) return;
 	driver.XTARGET(driver.XACTUAL());
-	Serial.print("Motor " + config.name + " needs to stop at ");
-	Serial.print(getPosition());
-	Serial.println(" " + config.unitName);
 }
 
 void StepperMotor::calibrate() { 
-	if (limitSwitch.pin == -1 || !IS_CONNECTED) {
-		Serial.println("Not calibrating motor without limit switch: " + config.name);
-		return;
-	} else {
-		Serial.print("Calibrating motor: " + config.name + "... ");
-	}
+	if (limitSwitch.pin == -1 || !IS_CONNECTED) return;
 
 	int steps = driver.XACTUAL();
 	while(!isLimitSwitchPressed()) {
@@ -97,7 +89,6 @@ void StepperMotor::calibrate() {
 	if (!isLimitSwitchPressed()) return calibrate();
 	stop();  // the while loop overshoots the limit switch and will keep going
 	limitSwitch.offset = driver.XACTUAL();
-	Serial.println("Done!");
 }
 
 void StepperMotor::moveTo(float position) {
@@ -107,59 +98,25 @@ void StepperMotor::moveTo(float position) {
 void StepperMotor::moveBy(float distance) {
 	// When called by [moveTo], this will be the same as the [position] parameter.
 	float targetPosition = getPosition() + distance;
-	Serial.print("Motor " + config.name + " is at ");
-	Serial.print(driver.XACTUAL());
-	Serial.print(" steps and ");
-	Serial.print(getPosition());
-	Serial.println(" " + config.unitName);
-
-	Serial.print("Moving " + config.name + " by ");
-	Serial.print(distance);
-	Serial.print(" " + config.unitName + ". That is ");
-	Serial.print(targetPosition);
-	Serial.println(" " + config.unitName);
-
 	// Check bounds
-	if (targetPosition > config.maxLimit || targetPosition < config.minLimit) { 
-		Serial.print("  ERROR: ");
-		Serial.print(targetPosition);
-		Serial.print(" is out of bounds (valid inputs are ");
-		Serial.print(config.minLimit);
-		Serial.print(" to ");
-		Serial.print(config.maxLimit);
-		Serial.println(config.unitName + ").");
-		return; 
-	}
+	if (targetPosition > config.maxLimit || targetPosition < config.minLimit) return; 
 
 	int steps = (distance * config.toSteps);
 	int targetStep = config.isPositive
 		? driver.XACTUAL() + steps
 		: driver.XACTUAL() - steps;
-	if (IS_CONNECTED) {
-		driver.XTARGET(targetStep);
-		Serial.print("  Motor " + config.name + " is moving to ");
-		Serial.print(getTarget());
-		Serial.println(" " + config.unitName);
-	} else {
-		Serial.println("  Motor not connected, not moving");
-	}
+	if (!IS_CONNECTED) return;
+	driver.XTARGET(targetStep);
 }
 
 void StepperMotor::moveToSteps(int steps) {
-	Serial.print("Moving " + config.name + " to ");
-	Serial.print(steps + limitSwitch.offset);
-	Serial.print(" steps... ");
-
 	steps += limitSwitch.offset;
 	moveBySteps(steps - driver.XACTUAL());
 }
 
 void StepperMotor::moveBySteps(int steps) {
-	if (IS_CONNECTED) driver.XTARGET(driver.XACTUAL() + steps);
-	else Serial.println("  Motor not connected, not moving");
-	Serial.print("Motor [" + config.name + "] is moving to ");
-	Serial.print(driver.XTARGET());
-	Serial.println(" steps");
+	if (!IS_CONNECTED) return; 
+	driver.XTARGET(driver.XACTUAL() + steps);
 }
 
 bool StepperMotor::isMoving() { 
