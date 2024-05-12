@@ -2,14 +2,16 @@
 #include <Arduino.h>
 #include "TmcStepper.h"
 
+#include "limit.h"
+
 const double pi = 3.141592653589793;
 const int microstepsPerStep = 256;
 const int stepsPerRotation = 200;
 const int degreesPerRotation = 360;
 const double radiansPerRotation = 2 * pi;
 
-const double stepsPerRadian = microstepsPerStep * stepsPerRotation / radiansPerRotation;
-const double stepsPerDegree = microstepsPerStep * stepsPerRotation / degreesPerRotation;
+const double microstepsPerRadian = microstepsPerStep * stepsPerRotation / radiansPerRotation;
+const double microstepsPerDegree = microstepsPerStep * stepsPerRotation / degreesPerRotation;
 
 struct StepperMotorPins {
   int enable;
@@ -22,19 +24,6 @@ struct StepperMotorConfig {
   int speed;
   int acceleration;
   double stepsPerUnit;
-};
-
-struct LimitSwitch {
-  int pin = -1;
-  int triggeredValue;
-  int direction = 1;
-  bool isBlocking = true;
-  double position;
-  double minLimit = -INFINITY;
-  double maxLimit = INFINITY;
-
-  int offset = 0;
-  bool isPressed();
 };
 
 class StepperMotor {

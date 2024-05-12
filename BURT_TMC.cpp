@@ -2,10 +2,6 @@
 
 const int blockDelay = 10;  // ms
 
-bool LimitSwitch::isPressed() {
-  return pin != -1 && digitalRead(pin) == triggeredValue;
-}
-
 StepperMotor::StepperMotor(StepperMotorPins pins, StepperMotorConfig config) : 
   pins(pins),
   config(config),
@@ -128,7 +124,7 @@ void StepperMotor::block() {
 }
 
 void StepperMotor::moveTo(double position) {
-  if (position > limitSwitch.maxLimit || position < limitSwitch.minLimit) return;
+  if (!limitSwitch.isValid(position)) return;
   int steps = position * config.stepsPerUnit;
   moveToSteps(steps);
 }
