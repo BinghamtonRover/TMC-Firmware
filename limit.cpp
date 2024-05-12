@@ -1,11 +1,11 @@
 #include "limit.h"
 
 bool LimitSwitch::isPressed() {
-  return pin != -1 && digitalRead(pin) == triggeredValue;
+  return isAttached() && digitalRead(pin) == triggeredValue;
 }
 
 bool LimitSwitch::isValid(double position) {
-  return pin == -1 || (position <= maxLimit && position >= minLimit);
+  return !isAttached() || (position <= maxLimit && position >= minLimit);
 }
 
 bool LimitSwitch::isAttached() {

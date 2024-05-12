@@ -98,7 +98,7 @@ void StepperMotor::setup() {
 }
 
 void StepperMotor::calibrate() {
-  if (limitSwitch.pin == -1) return;
+  if (!limitSwitch.isAttached()) return;
   while (!limitSwitch.isPressed()) {
     moveBySteps(10 * limitSwitch.direction);
   }
