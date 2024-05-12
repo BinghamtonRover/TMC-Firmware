@@ -1,3 +1,5 @@
+#include <Arduino.h>
+
 struct LimitSwitch {
   int pin = -1;
   int triggeredValue;
