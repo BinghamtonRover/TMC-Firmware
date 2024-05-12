@@ -89,7 +89,9 @@ void StepperMotor::write_settings() {
 }
 
 void StepperMotor::setup() {
-  Serial.print("Initiializing motor...");
+  Serial.print("Initializing motor ");
+  Serial.print(config.name);
+  Serial.print("... ");
   pinMode(pins.enable, OUTPUT);
   digitalWrite(pins.enable, LOW);
   if (limitSwitch.pin != -1) pinMode(limitSwitch.pin, INPUT_PULLUP);
