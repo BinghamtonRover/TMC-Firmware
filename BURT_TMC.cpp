@@ -11,8 +11,8 @@ StepperMotor::StepperMotor(StepperMotorPins pins, StepperMotorConfig config) :
 StepperMotor::StepperMotor(StepperMotorPins pins, StepperMotorConfig config, LimitSwitch limitSwitch) :
   pins(pins),
   config(config),
-  limitSwitch(limitSwitch),
-  driver(TMC5160Stepper(SPI, pins.chipSelect, 0.075))
+  driver(TMC5160Stepper(SPI, pins.chipSelect, 0.075)),
+  limitSwitch(limitSwitch)
   { }
 
 bool StepperMotor::isMoving() {
@@ -20,19 +20,19 @@ bool StepperMotor::isMoving() {
 }
 
 int StepperMotor::currentSteps() {
-  return driver.XACTUAL() + limitSwitch.offset;
+  return driver.XACTUAL() + limitSwitch.offset + limitSwitch.position * config.stepsPerUnit;
 }
 
 int StepperMotor::targetSteps() {
-  return driver.XTARGET() + limitSwitch.offset;
+  return driver.XTARGET() + limitSwitch.offset + limitSwitch.position * config.stepsPerUnit;
 }
 
 double StepperMotor::currentPosition() {
-  return currentSteps() * config.stepsPerUnit;
+  return currentSteps() / config.stepsPerUnit;
 }
 
 double StepperMotor::targetPosition() {
-  return targetSteps() * config.stepsPerUnit;
+  return targetSteps() / config.stepsPerUnit;
 }
 
 void StepperMotor::presetup() {
@@ -98,13 +98,14 @@ void StepperMotor::setup() {
 }
 
 void StepperMotor::calibrate() {
-  if (!limitSwitch.isAttached()) return;
-  while (!limitSwitch.isPressed()) {
-    moveBySteps(10 * limitSwitch.direction);
-  }
+  // if (!limitSwitch.isAttached()) return;
+  // while (!limitSwitch.isPressed()) {
+  //   moveBySteps(10 * limitSwitch.direction);
+  // }
   stop();
   int limitSteps = limitSwitch.position * config.stepsPerUnit;
-  limitSwitch.offset = limitSteps - driver.XACTUAL() * limitSwitch.direction;
+  // limitSwitch.offset = limitSteps - driver.XACTUAL() * limitSwitch.direction;
+  limitSwitch.offset = -driver.XACTUAL();
 }
 
 void StepperMotor::update() {
