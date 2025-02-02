@@ -97,6 +97,16 @@ void StepperMotor::setup() {
   Serial.println("Done!");
 }
 
+void StepperMotor::setControlMode() {
+  // 0 -> Positional Control
+  // 1 -> Velocity Control with +ive VMAX
+  driver.RAMPMODE(config.controlMode);
+}
+
+void changeSpeed(int newSpeed) {
+  driver.VMAX(newSpeed);
+}
+
 void StepperMotor::calibrate() {
   if (!limitSwitch.isAttached()) return;
   while (!limitSwitch.isPressed()) {
