@@ -24,7 +24,6 @@ struct StepperMotorConfig {
   int speed;
   int acceleration;
   double stepsPerUnit;
-  uint8_t controlMode;
 };
 
 class StepperMotor {
@@ -50,7 +49,7 @@ class StepperMotor {
 
     void presetup();
     void setup();
-    void setControlMode();
+    void setControlMode(int mode);
     void changeSpeed(int newSpeed);
     void calibrate();
     void update();
@@ -61,4 +60,5 @@ class StepperMotor {
     void moveBy(double offset);
     void moveToSteps(int steps);
     void moveBySteps(int steps);
+    void velControl(int startVel, int stopVel, int stepDiff);
 };

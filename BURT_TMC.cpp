@@ -97,14 +97,13 @@ void StepperMotor::setup() {
   Serial.println("Done!");
 }
 
-void StepperMotor::setControlMode() {
+void StepperMotor::setControlMode(int mode) {
   // 0 -> Positional Control
   // 1 -> Velocity Control with +ive VMAX
-  driver.RAMPMODE(config.controlMode);
-}
-
-void changeSpeed(int newSpeed) {
-  driver.VMAX(newSpeed);
+  // 3 -> Hold current Velocity until Stop event
+  if (mode >= 0 || mode <= 3) {
+    driver.RAMPMODE(mode);
+  }
 }
 
 void StepperMotor::calibrate() {
@@ -127,6 +126,12 @@ void StepperMotor::update() {
 
 void StepperMotor::stop() {
   driver.XTARGET(driver.XACTUAL());
+  driver.VMAX(0);
+  driver.RAMPMODE(1);
+  driver.vstart(0);
+  driver.vstop(0);
+  driver.v1(0);
+  // driver.RAMPMODE(3);
 }
 
 void StepperMotor::block() {
@@ -151,4 +156,22 @@ void StepperMotor::moveToSteps(int steps) {
 void StepperMotor::moveBySteps(int steps) {
   int target = driver.XACTUAL() + steps;
   driver.XTARGET(target);
+}
+
+void StepperMotor::velControl(int startVel, int stopVel, int stepDiff) {
+  if (startVel > stopVel || stepDiff < 0.1) {
+    Serial.println("Check entries: startVel must be less than stopVel");
+    Serial.println("and stepDiff must be >= 0.1");
+    return;
+  }
+  driver.RAMPMODE(1);
+  driver.VMAX(stopVel);
+  driver.vstart(startVel);
+  driver.vstop(stopVel);
+  driver.v1(stepDiff);
+  
+  delay(3000);
+  driver.RAMPMODE(3);
+  Serial.print("Speed Holding at: ");
+  Serial.println(driver.VACTUAL());
 }
