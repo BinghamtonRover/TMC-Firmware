@@ -97,13 +97,8 @@ void StepperMotor::setup() {
   Serial.println("Done!");
 }
 
-void StepperMotor::setControlMode(int mode) {
-  // 0 -> Positional Control
-  // 1 -> Velocity Control with +ive VMAX
-  // 3 -> Hold current Velocity until Stop event
-  if (mode >= 0 || mode <= 3) {
-    driver.RAMPMODE(mode);
-  }
+void StepperMotor::changeSpeed(int newSpeed) {
+  driver.VMAX(newSpeed);
 }
 
 void StepperMotor::calibrate() {

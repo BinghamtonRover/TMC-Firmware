@@ -49,7 +49,6 @@ class StepperMotor {
 
     void presetup();
     void setup();
-    void setControlMode(int mode);
     void changeSpeed(int newSpeed);
     void calibrate();
     void update();
