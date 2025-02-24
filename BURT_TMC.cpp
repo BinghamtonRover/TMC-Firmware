@@ -155,8 +155,7 @@ void StepperMotor::moveBySteps(int steps) {
 
 void StepperMotor::velControl(int startVel, int stopVel, int stepDiff) {
   if (startVel > stopVel || stepDiff < 0.1) {
-    Serial.println("Check entries: startVel must be less than stopVel");
-    Serial.println("and stepDiff must be >= 0.1");
+    // startVel must be less than stopVel and stepDiff must be >= 0.1
     return;
   }
   driver.RAMPMODE(1);
@@ -167,6 +166,4 @@ void StepperMotor::velControl(int startVel, int stopVel, int stepDiff) {
   
   delay(3000);
   driver.RAMPMODE(3);
-  Serial.print("Speed Holding at: ");
-  Serial.println(driver.VACTUAL());
 }
