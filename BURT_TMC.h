@@ -30,7 +30,7 @@ class StepperMotor {
   private: 
     StepperMotorPins pins;
     StepperMotorConfig config;
-    LimitSwitch limitSwitch;
+    
 		TMC5160Stepper driver;
 
     void reset_driver();
@@ -38,6 +38,7 @@ class StepperMotor {
     void write_settings();
 
   public: 
+    LimitSwitch limitSwitch;
     StepperMotor(StepperMotorPins pins, StepperMotorConfig config);
     StepperMotor(StepperMotorPins pins, StepperMotorConfig config, LimitSwitch limitSwitch);
 
@@ -46,6 +47,7 @@ class StepperMotor {
     int targetSteps();
     double currentPosition();
     double targetPosition();
+    int getSpeed();
 
     void presetup();
     void setup();

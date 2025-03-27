@@ -35,6 +35,10 @@ double StepperMotor::targetPosition() {
   return targetSteps() * config.stepsPerUnit;
 }
 
+int StepperMotor::getSpeed() {
+  return driver.VACTUAL();
+}
+
 void StepperMotor::presetup() {
   pinMode(pins.chipSelect, OUTPUT);
   digitalWrite(pins.chipSelect, HIGH);
