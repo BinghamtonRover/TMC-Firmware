@@ -36,6 +36,10 @@ class StepperMotor {
     void check_driver();
     void write_settings();
 
+    bool isConnected();
+
+    bool prevConnected = false;
+
   public: 
     LimitSwitch limitSwitch;
     StepperMotor(StepperMotorPins pins, StepperMotorConfig config);

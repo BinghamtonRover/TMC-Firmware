@@ -44,8 +44,20 @@ void StepperMotor::reset_driver() {
   driver.begin();
   driver.reset();
   digitalWrite(pins.enable, HIGH);  // disable driver to clear the cache
-	delay(1000);
+	delay(1);
 	digitalWrite(pins.enable, LOW);   // re-enable drive, to start loading in parameters
+}
+
+bool StepperMotor::isConnected() {
+  TMC5160Stepper::IOIN_t ioin { driver.IOIN() };
+  if (ioin.version == 0xFF || ioin.version == 0) {
+    return false;
+  } else if (ioin.sd_mode) {
+    return false;
+  } else if (ioin.drv_enn) {
+    return false;
+  }
+  return true;
 }
 
 void StepperMotor::check_driver() {
@@ -53,15 +65,15 @@ void StepperMotor::check_driver() {
   if (ioin.version == 0xFF || ioin.version == 0) {
     Serial.print("\nDriver communication error on motor: ");
     Serial.println(config.name);
-    while (true);
+    prevConnected = false;
   } else if (ioin.sd_mode) {
     Serial.println("Motor is configured for Step & Direction mode: ");
     Serial.println(config.name);
-    while (true);
+    prevConnected = false;
   } else if (ioin.drv_enn) {
     Serial.println("Motor is not hardware enabled: ");
     Serial.println(config.name);
-    while (true);
+    prevConnected = false;
   }
 }
 
@@ -79,6 +91,7 @@ void StepperMotor::write_settings() {
 	driver.VMAX(config.speed);
 	driver.DMAX(config.acceleration);
 	driver.d1(config.acceleration);
+  driver.microsteps(microstepsPerStep);
 	driver.vstop(100);
 	driver.vstart(100);
 	driver.RAMPMODE(0);
@@ -94,6 +107,7 @@ void StepperMotor::setup() {
   reset_driver();
   check_driver();
   write_settings();
+  prevConnected = isConnected();
   Serial.println("Done!");
 }
 
@@ -109,6 +123,16 @@ void StepperMotor::calibrate() {
 }
 
 void StepperMotor::update() {
+  bool connected = isConnected();
+  if (connected && !prevConnected) {
+    driver.reset();
+    digitalWrite(pins.enable, HIGH);  // disable driver to clear the cache
+    delayMicroseconds(10);
+    digitalWrite(pins.enable, LOW);   // re-enable drive, to start loading in parameters
+    write_settings();
+  }
+  prevConnected = connected;
+
   int target = driver.XTARGET();
   int current = driver.XACTUAL();
   bool isMovingTowardsLimit = limitSwitch.direction > 0
