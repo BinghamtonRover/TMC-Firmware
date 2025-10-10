@@ -4,14 +4,15 @@
 
 #include "limit.h"
 
-const double pi = 3.141592653589793;
-const int microstepsPerStep = 256;
-const int stepsPerRotation = 200;
-const int degreesPerRotation = 360;
-const double radiansPerRotation = 2 * pi;
+constexpr float    pi                 = 3.141592653589793f;
+constexpr uint16_t stepsPerRotation   = 200;
+constexpr uint16_t degreesPerRotation = 360;
+constexpr float    radiansPerRotation = 2.0f * pi;
+constexpr uint16_t mres               = 16;
+constexpr int      microstepsPerStep = 256;
 
-const double microstepsPerRadian = microstepsPerStep * stepsPerRotation / radiansPerRotation;
-const double microstepsPerDegree = microstepsPerStep * stepsPerRotation / degreesPerRotation;
+constexpr float microstepsPerRadian = microstepsPerStep * stepsPerRotation / radiansPerRotation;
+constexpr float microstepsPerDegree = microstepsPerStep * stepsPerRotation / degreesPerRotation;
 
 struct StepperMotorPins {
   int enable;
