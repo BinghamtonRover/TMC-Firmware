@@ -15,8 +15,9 @@ constexpr float microstepsPerRadian = microstepsPerStep * stepsPerRotation / rad
 constexpr float microstepsPerDegree = microstepsPerStep * stepsPerRotation / degreesPerRotation;
 
 struct StepperMotorPins {
-  int enable;
-  int chipSelect;
+  const uint8_t chipSelect;
+  const uint8_t step_pin;
+  const uint8_t dir_pin;
 };
 
 struct StepperMotorConfig {
