@@ -39,6 +39,12 @@ double StepperMotor::targetPosition() {
 void StepperMotor::presetup() {
   pinMode(pins.chipSelect, OUTPUT);
   digitalWrite(pins.chipSelect, HIGH);
+  if (step_dir_mode) {
+    pinMode(pins.step_pin, OUTPUT);
+    pinMode(pins.dir_pin, OUTPUT);
+    digitalWrite(pins.step_pin, LOW);
+    digitalWrite(pins.dir_pin, LOW);
+  }
 }
 
 void StepperMotor::reset_driver() {
