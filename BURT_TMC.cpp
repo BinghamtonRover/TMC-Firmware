@@ -2,18 +2,19 @@
 
 const int blockDelay = 10;  // ms
 
-StepperMotor::StepperMotor(StepperMotorPins pins, StepperMotorConfig config) : 
-  pins(pins),
-  config(config),
+StepperMotor::StepperMotor(StepperMotorPins pins, StepDirConfig config) {
+  StepperMotorPins StepperMotor::pins;
+  StepDirConfig StepperMotor::config;
+  StepperMotor::step_dir_mode = true;
   driver(TMC5160Stepper(SPI, pins.chipSelect, 0.075))
-  { }
+}
 
-StepperMotor::StepperMotor(StepperMotorPins pins, StepperMotorConfig config, LimitSwitch limitSwitch) :
-  pins(pins),
-  config(config),
-  driver(TMC5160Stepper(SPI, pins.chipSelect, 0.075)),
-  limitSwitch(limitSwitch)
-  { }
+StepperMotor::StepperMotor(StepperMotorPins pins, InternalRampConfig config) {
+  StepperMotorPins StepperMotor::pins;
+  InternalRampConfig StepperMotor::config;
+  StepperMotor::step_dir_mode = false;
+  driver(TMC5160Stepper(SPI, pins.chipSelect, 0.075))
+  }
 
 bool StepperMotor::isMoving() {
   return driver.XTARGET() != driver.XACTUAL();
