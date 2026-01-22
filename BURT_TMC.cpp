@@ -6,39 +6,39 @@ StepperMotor::StepperMotor(StepperMotorPins pins, StepDirConfig config) {
   StepperMotorPins StepperMotor::pins;
   StepDirConfig StepperMotor::config;
   StepperMotor::mode = step_dir;
-  driver(TMC5160Stepper(SPI, pins.chipSelect, 0.075));
+  driver(TMC5160Stepper(SPI, pins.chip_select, 0.075));
 }
 
 StepperMotor::StepperMotor(StepperMotorPins pins, InternalRampConfig config) {
   StepperMotorPins StepperMotor::pins;
   InternalRampConfig StepperMotor::config;
   StepperMotor::mode = int_pos;
-  driver(TMC5160Stepper(SPI, pins.chipSelect, 0.075));
-  }
+  driver(TMC5160Stepper(SPI, pins.chip_select, 0.075));
+}
 
 bool StepperMotor::isMoving() {
   return driver.XTARGET() != driver.XACTUAL();
 }
 
 int StepperMotor::currentSteps() {
-  return driver.XACTUAL() + limitSwitch.offset + limitSwitch.position * config.stepsPerUnit;
+  return driver.XACTUAL() + limitSwitch.offset + limitSwitch.position * config.steps_per_unit;
 }
 
 int StepperMotor::targetSteps() {
-  return driver.XTARGET() + limitSwitch.offset + limitSwitch.position * config.stepsPerUnit;
+  return driver.XTARGET() + limitSwitch.offset + limitSwitch.position * config.steps_per_unit;
 }
 
 double StepperMotor::currentPosition() {
-  return currentSteps() / config.stepsPerUnit;
+  return currentSteps() / config.steps_per_unit;
 }
 
 double StepperMotor::targetPosition() {
-  return targetSteps() / config.stepsPerUnit;
+  return targetSteps() / config.steps_per_unit;
 }
 
-void StepperMotor::presetup() {
-  pinMode(pins.chipSelect, OUTPUT);
-  digitalWrite(pins.chipSelect, HIGH);
+void StepperMotor::preSetup() {
+  pinMode(pins.chip_select, OUTPUT);
+  digitalWrite(pins.chip_select, HIGH);
   if (mode == step_dir) {
     pinMode(pins.step_pin, OUTPUT);
     pinMode(pins.dir_pin, OUTPUT);
@@ -47,7 +47,7 @@ void StepperMotor::presetup() {
   }
 }
 
-void StepperMotor::reset_driver() {
+void StepperMotor::resetDriver() {
   if (status == E_STOPPED) return;
   switch (mode) {
       case step_dir:
@@ -85,11 +85,11 @@ void StepperMotor::reset_driver() {
       }
 }
 
-void StepperMotor::check_driver() {
+void StepperMotor::checkDriver() {
   if (done_f || (status == E_STOPPED)) return;
   if (!start_time_ms) start_time_ms = millis();
   uint32_t now = millis();
-  if (now - last_check_ms >= RETRY_DELAY_MS) {
+  if (now - last_check_ms >= retry_delay_ms) {
     last_check_ms = now;
     TMC5160Stepper::IOIN_t ioin { driver.IOIN() };
     if (ioin.version == 0xFF || ioin.version == 0) {
@@ -117,12 +117,12 @@ void StepperMotor::check_driver() {
   }
 }
 
-void StepperMotor::write_settings() {
+void StepperMotor::writeSettings() {
   switch (mode) {}
     case step_dir:
       // General Setup
       driver.GSTAT(0b111); // Clear latched errors
-      driver.en_pwm_mode(config.stealthChop_en); // Enable stealthChop if configured
+      driver.en_pwm_mode(config.stealth_chop_en); // Enable stealthChop if configured
       driver.multistep_filt(true); // Enable internal filtering on STEP pin
       driver.shaft(config.invert_dir); // Invert DIR if configured
       driver.GLOBAL_SCALER(200); // Scales values pertaining to current by (200)
@@ -135,7 +135,7 @@ void StepperMotor::write_settings() {
 
       // Threshold to switch from StealthChop to SpreadCycle
       // TPWMTHRS ~= f_clk/((joint_deg_per_s/360)*GEAR_RATIO*STEPS_PER_REV*(256 / MRES))
-      driver.TPWMTHRS(config.spreadCycle_start_thrs);  
+      driver.TPWMTHRS(config.spread_cycle_start_thrs);  
 
       // Chopper Configuration (SpreadCycle + MicroPlyer)
       driver.intpol(1); // MRES extrapolated to 256usteps internally to smooth motion (STEP/DIR ONLY)
@@ -203,12 +203,12 @@ void StepperMotor::block() {
 
 void StepperMotor::moveTo(double position) {
   if (!limitSwitch.isValid(position)) return;
-  int steps = position * config.stepsPerUnit;
+  int steps = position * config.steps_per_unit;
   moveToSteps(steps);
 }
 
 void StepperMotor::moveBy(double offset) {
-  int steps = offset * config.stepsPerUnit;
+  int steps = offset * config.steps_per_unit;
   moveBySteps(steps);
 }
 
@@ -221,7 +221,7 @@ void StepperMotor::moveBySteps(int steps) {
   driver.XTARGET(target);
 }
 
-void StepperMotor::e_stop() {
+void StepperMotor::eStop() {
   // Stop STEP driving
   analogWrite(pins.step_pin, 0);
   digitalWrite(pins.step_pin, LOW);
@@ -231,7 +231,7 @@ void StepperMotor::e_stop() {
   status = E_STOPPED;
 }
 
-void StepperMotor::clear_e_stop() {
+void StepperMotor::clearEStop() {
   // sanity: keep STEP low until configured
   analogWrite(pins.step_pin, 0);
   digitalWrite(pins.step_pin, LOW);
@@ -243,11 +243,11 @@ void StepperMotor::clear_e_stop() {
   check_driver();
 }
 
-void StepperMotor::set_dir(uint8_t direction) {
+void StepperMotor::setDir(uint8_t direction) {
   digitalWrite(pins.dir_pin, direction);
 }
 
-void StepperMotor::set_step_hz(uint32_t f_step) {
+void StepperMotor::setStepHz(uint32_t f_step) {
   uint32_t f_PWM = config.dedge ? f_step/2 : f_step;
 
   // Clamp PWM to [20kHz, 200kHz]
@@ -258,13 +258,13 @@ void StepperMotor::set_step_hz(uint32_t f_step) {
   analogWrite(pins.step_pin, 128); // 50% duty cycle
 }
 
-void StepperMotor::set_motor_rps(float rps) {
+void StepperMotor::setMotorRps(float rps) {
   // Set DIR
   set_dir((rps < 0) ? HIGH : LOW);
   rps = fabsf(rps);
   // FORMULA: f_step = n_joint*G*N_step*M_res
   uint32_t f_step = static_cast<uint32_t>(
-    rps*config.gear_ratio*stepsPerRotation*mres + 0.5f
+    rps*config.gear_ratio*steps_per_rotation*mres + 0.5f
   );
   set_step_hz(f_step);
 }
