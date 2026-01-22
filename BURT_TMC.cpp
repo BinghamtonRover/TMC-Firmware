@@ -106,22 +106,47 @@ void StepperMotor::check_driver() {
 }
 
 void StepperMotor::write_settings() {
-  // TODO: Decide if everything below this is needed: 
-	// See https://github.com/BinghamtonRover/arm-firmware/issues/6
-  driver.GSTAT(7);
-	driver.rms_current(config.current);
-	driver.tbl(2);
-	driver.toff(9);
-	driver.pwm_freq(1);
-	driver.a1(config.acceleration);
-	driver.v1(config.speed);
-	driver.AMAX(config.acceleration);
-	driver.VMAX(config.speed);
-	driver.DMAX(config.acceleration);
-	driver.d1(config.acceleration);
-	driver.vstop(100);
-	driver.vstart(100);
-	driver.RAMPMODE(0);
+  if (step_dir_mode) {
+    // General Setup
+    driver.GSTAT(0b111); // Clear latched errors
+    driver.en_pwm_mode(config.stealthChop_en); // Enable stealthChop if configured
+    driver.multistep_filt(true); // Enable internal filtering on STEP pin
+    driver.shaft(config.invert_dir); // Invert DIR if configured
+    driver.GLOBAL_SCALER(200); // Scales values pertaining to current by (200)
+
+    // Current and Delays
+    driver.irun(config.run_current_scale); // Scale IRUN to config
+    driver.ihold(config.hold_current_scale); // Scale IHOLD to config
+    driver.iholddelay(config.ihold_delay_scale); // Scale IHOLDDELAY to config
+    driver.TPOWERDOWN(5); // Delay from StandStill -> Powerdown
+
+    // Threshold to switch from StealthChop to SpreadCycle
+    // TPWMTHRS ~= f_clk/((joint_deg_per_s/360)*GEAR_RATIO*STEPS_PER_REV*(256 / MRES))
+    driver.TPWMTHRS(config.spreadCycle_start_thrs);  
+
+    // Chopper Configuration (SpreadCycle + MicroPlyer)
+    driver.intpol(1); // MRES extrapolated to 256usteps internally to smooth motion (STEP/DIR ONLY)
+    driver.mres(0b0100); // %0001 … %1000: 128, 64, 32, 16, 8, 4, 2, FULLSTEP, 0b0100 = 16, allows lower STEP freq from MCU
+    driver.tbl(2); // Set comparator blank time (0-3 => 16, 24, 36, 54) (Recommended 1 or 2)
+    driver.dedge(config.dedge); // 1 uses falling edge as second step pulse, allows lower step freq from MCU but requires exactly 50% duty cycle
+    driver.toff(3); // Off time setting controls duration of slow decay phase, NCLK= 24 + 32*TOFF
+  }
+  else if (!step_dir_mode) {
+    driver.GSTAT(7);
+    driver.rms_current(config.current);
+    driver.tbl(2);
+    driver.toff(9);
+    driver.pwm_freq(1);
+    driver.a1(config.acceleration);
+    driver.v1(config.speed);
+    driver.AMAX(config.acceleration);
+    driver.VMAX(config.speed);
+    driver.DMAX(config.acceleration);
+    driver.d1(config.acceleration);
+    driver.vstop(100);
+    driver.vstart(100);
+    driver.RAMPMODE(0);
+  }
 }
 
 void StepperMotor::setup() {
