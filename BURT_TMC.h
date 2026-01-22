@@ -70,7 +70,7 @@ enum DriverStatus : uint8_t {
 
 enum DriverMode {
   STEP_DIR_MODE,
-  INT_POS_MODE
+  INT_POS_MODE,
 };
 
 class StepperMotor {

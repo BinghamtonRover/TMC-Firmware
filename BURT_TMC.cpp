@@ -5,14 +5,14 @@ const int blockDelay = 10;  // ms
 StepperMotor::StepperMotor(StepperMotorPins pins, StepDirConfig config) {
   StepperMotorPins StepperMotor::pins;
   StepDirConfig StepperMotor::config;
-  StepperMotor::mode = step_dir;
+  StepperMotor::mode = STEP_DIR_MODE;
   driver(TMC5160Stepper(SPI, pins.chip_select, 0.075));
 }
 
 StepperMotor::StepperMotor(StepperMotorPins pins, InternalRampConfig config) {
   StepperMotorPins StepperMotor::pins;
   InternalRampConfig StepperMotor::config;
-  StepperMotor::mode = int_pos;
+  StepperMotor::mode = INT_POS_MODE;
   driver(TMC5160Stepper(SPI, pins.chip_select, 0.075));
 }
 
@@ -39,7 +39,7 @@ double StepperMotor::targetPosition() {
 void StepperMotor::preSetup() {
   pinMode(pins.chip_select, OUTPUT);
   digitalWrite(pins.chip_select, HIGH);
-  if (mode == step_dir) {
+  if (mode == STEP_DIR_MODE) {
     pinMode(pins.step_pin, OUTPUT);
     pinMode(pins.dir_pin, OUTPUT);
     digitalWrite(pins.step_pin, LOW);
@@ -50,7 +50,7 @@ void StepperMotor::preSetup() {
 void StepperMotor::resetDriver() {
   if (status == E_STOPPED) return;
   switch (mode) {
-      case step_dir:
+      case STEP_DIR_MODE:
         driver.begin();
         driver.reset();
         start_time_ms = last_check_ms = 0;
@@ -64,7 +64,7 @@ void StepperMotor::resetDriver() {
         Serial.print("Driver SD Mode status: ");
         Serial.println(driver.sd_mode());
         break;
-      case (int_pos):
+      case (INT_POS_MODE):
         driver.begin();
         driver.reset();
         start_time_ms = last_check_ms = 0;
@@ -117,7 +117,7 @@ void StepperMotor::checkDriver() {
 
 void StepperMotor::writeSettings() {
   switch (mode) {}
-    case step_dir:
+    case STEP_DIR_MODE:
       // General Setup
       driver.GSTAT(0b111); // Clear latched errors
       driver.en_pwm_mode(config.stealth_chop_en); // Enable stealthChop if configured
@@ -142,7 +142,7 @@ void StepperMotor::writeSettings() {
       driver.dedge(config.dedge); // 1 uses falling edge as second step pulse, allows lower step freq from MCU but requires exactly 50% duty cycle
       driver.toff(3); // Off time setting controls duration of slow decay phase, NCLK= 24 + 32*TOFF
       break;
-    case int_pos:
+    case INT_POS_MODE:
       driver.GSTAT(7);
       driver.rms_current(config.current);
       driver.tbl(2);
