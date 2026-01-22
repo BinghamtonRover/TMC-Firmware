@@ -42,27 +42,66 @@ void StepperMotor::presetup() {
 }
 
 void StepperMotor::reset_driver() {
-  driver.begin();
-  driver.reset();
-  digitalWrite(pins.enable, HIGH);  // disable driver to clear the cache
-	delay(1000);
-	digitalWrite(pins.enable, LOW);   // re-enable drive, to start loading in parameters
+  if (status == E_STOPPED) return;
+  if (step_dir_mode) {
+    driver.begin();
+    driver.reset();
+    start_time_ms = last_check_ms = 0;
+    done_f = false;
+    status = RETRYING;
+    do
+    {
+      check_driver();
+      delay(1);
+    } while (status != STP_DIR_OK);
+    write_settings();
+    Serial.print("Driver SD Mode status: ");
+    Serial.println(driver.sd_mode());
+  } else if (!step_dir_mode) {
+    driver.begin();
+    driver.reset();
+    start_time_ms = last_check_ms = 0;
+    done_f = false;
+    status = RETRYING;
+    do
+    {
+      check_driver();
+      delay(1);
+    } while (status != POS_OK);
+    write_settings();
+    Serial.print("Driver is in Internal Ramp Mode");
+  }
 }
 
 void StepperMotor::check_driver() {
-  TMC5160Stepper::IOIN_t ioin { driver.IOIN() };
-  if (ioin.version == 0xFF || ioin.version == 0) {
-    Serial.print("\nDriver communication error on motor: ");
-    Serial.println(config.name);
-    while (true);
-  } else if (ioin.sd_mode) {
-    Serial.println("Motor is configured for Step & Direction mode: ");
-    Serial.println(config.name);
-    while (true);
-  } else if (ioin.drv_enn) {
-    Serial.println("Motor is not hardware enabled: ");
-    Serial.println(config.name);
-    while (true);
+  if (done_f || (status == E_STOPPED)) return;
+  if (!start_time_ms) start_time_ms = millis();
+  uint32_t now = millis();
+  if (now - last_check_ms >= RETRY_DELAY_MS) {
+    last_check_ms = now;
+    TMC5160Stepper::IOIN_t ioin { driver.IOIN() };
+    if (ioin.version == 0xFF || ioin.version == 0) {
+      // Comm Error
+      status = RETRYING_COMM;
+    } 
+    else if (ioin.drv_enn) {
+      // Driver Enable Error (Hardware) [EN pin is not tied to GND]
+      status = RETRYING_ENN;
+    }
+    else if (ioin.sd_mode) {
+      // Step/Dir Mode Good
+      done_f = true;
+      status = STP_DIR_OK;
+    } 
+    else {
+      // Internal Ramp Mode Good
+      done_f = true;
+      status = POS_OK;
+    }
+    if (((now - start_time_ms) > TIMEOUT_MS) && !(done_f)){
+      status |= 0x80; // Change Error Code to Timeout version
+      done_f = true;
+    }
   }
 }
 
