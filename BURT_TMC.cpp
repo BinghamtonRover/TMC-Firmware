@@ -250,10 +250,9 @@ void StepperMotor::set_step_hz(uint32_t f_step) {
 
 void StepperMotor::set_motor_rps(float rps) {
   // Set DIR
-  // set_dir((rps < 0) ? HIGH : LOW);
-  // rps = fabsf(rps);
-  set_dir(1);
-  // f_step = n_joint*G*N_step*M_res
+  set_dir((rps < 0) ? HIGH : LOW);
+  rps = fabsf(rps);
+  // FORMULA: f_step = n_joint*G*N_step*M_res
   uint32_t f_step = static_cast<uint32_t>(
     rps*config.gear_ratio*stepsPerRotation*mres + 0.5f
   );
