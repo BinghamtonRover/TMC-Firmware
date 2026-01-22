@@ -75,7 +75,7 @@ void StepperMotor::resetDriver() {
           delay(1);
         } while (status != POS_OK || !(done_flag));
         write_settings();
-        Serial.print("Driver is in Internal Ramp Mode");
+        Serial.println("Driver is in Internal Ramp Mode");
         break;
       default: 
         Serial.println("Error: Motor not configured in S/D or Int Pos Mode");
