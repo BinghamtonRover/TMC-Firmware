@@ -72,6 +72,14 @@ class StepperMotor {
 		TMC5160Stepper                                  driver;
     std::variant<StepDirConfig, InternalRampConfig> config;
 
+    // Vars for check_driver
+    static constexpr uint32_t TIMEOUT_MS = 500;
+    static constexpr uint8_t  RETRY_DELAY_MS = 25;
+    uint32_t                  start_time_ms = 0;
+    uint32_t                  last_check_ms = 0;
+    bool                      done_f = false;
+    DriverStatus              status = RETRYING;
+    
     void reset_driver();
     void check_driver();
     void write_settings();
