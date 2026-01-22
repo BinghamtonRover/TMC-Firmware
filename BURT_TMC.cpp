@@ -60,7 +60,7 @@ void StepperMotor::resetDriver() {
         {
           check_driver();
           delay(1);
-        } while (status != STP_DIR_OK);
+        } while (status != STP_DIR_OK || !(done_flag));
         write_settings();
         Serial.print("Driver SD Mode status: ");
         Serial.println(driver.sd_mode());
@@ -75,7 +75,7 @@ void StepperMotor::resetDriver() {
         {
           check_driver();
           delay(1);
-        } while (status != POS_OK);
+        } while (status != POS_OK || !(done_flag));
         write_settings();
         Serial.print("Driver is in Internal Ramp Mode");
         break;
