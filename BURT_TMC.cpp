@@ -241,8 +241,8 @@ void StepperMotor::set_step_hz(uint32_t f_step) {
   uint32_t f_PWM = config.dedge ? f_step/2 : f_step;
 
   // Clamp PWM to [20kHz, 200kHz]
-  if (f_PWM < 1000) f_PWM = 1000;
-  if (f_PWM > 200000) f_PWM = 200000;
+  if (f_PWM < min_freq) f_PWM = min_freq;
+  if (f_PWM > max_freq) f_PWM = max_freq;  
 
   analogWriteFrequency(pins.step_pin, f_PWM);
   analogWrite(pins.step_pin, 128); // 50% duty cycle

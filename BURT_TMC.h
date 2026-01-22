@@ -11,6 +11,8 @@ constexpr uint16_t degreesPerRotation = 360;
 constexpr float    radiansPerRotation = 2.0f * pi;
 constexpr uint16_t mres               = 16;
 constexpr int      microstepsPerStep  = 256;
+constexpr unsigned min_freq           = 1000; // Change after testing
+constexpr unsigned max_freq           = 20000; // Change after testing
 
 constexpr float microstepsPerRadian = microstepsPerStep * stepsPerRotation / radiansPerRotation;
 constexpr float microstepsPerDegree = microstepsPerStep * stepsPerRotation / degreesPerRotation;
