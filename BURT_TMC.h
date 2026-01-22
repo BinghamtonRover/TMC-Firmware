@@ -53,6 +53,19 @@ struct InternalRampConfig {
   float       stepsPerUnit;
 };
 
+enum DriverStatus : uint8_t {
+  // Bit layout: [7] = error, , [6:5] = E Stop, [4] = success, [3:0] = subtype
+  STP_DIR_OK    = 0x10 | 0x01, // 0001 0001 - Driver is in STEP/DIR Mode and ready to go
+  POS_OK        = 0x10 | 0x02, // 0001 0010 - ON FULL INTEGRATION ENABLE THIS
+  RETRYING      = 0x00 | 0x01, // 0000 0001 - Nothing on last attempt, still trying
+  RETRYING_COMM = 0x00 | 0x02, // 0000 0010 - Comm error on last attempt, still trying
+  RETRYING_ENN  = 0x00 | 0x03, // 0000 0011 - !(drv_enn) on last attempt, still trying
+  TIMEOUT       = 0x80 | 0x01, // 1000 0001 - Timeout with no response
+  COMM_ERR      = 0x80 | 0x02, // 1000 0010 - Timeout with Driver Communication Error
+  ENN_ERR       = 0x80 | 0x03, // 1000 0011 - Timeout with Motor is not hardware enabled
+  E_STOPPED     = 0x60 | 0x00, // 0110 0000 - Not settable in check_driver, latches in e_stop
+};
+
 class StepperMotor {
   private: 
     StepperMotorPins   pins;
