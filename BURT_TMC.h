@@ -84,7 +84,7 @@ private:
   static constexpr uint8_t  retry_delay_ms = 25;
   uint32_t                  start_time_ms  = 0;
   uint32_t                  last_check_ms  = 0;
-  bool                      done_f         = false;
+  bool                      done_flag         = false;
   DriverStatus              status         = RETRYING;
   DriverMode                mode;
 
