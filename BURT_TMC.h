@@ -79,6 +79,21 @@ class StepperMotor {
     uint32_t                  last_check_ms = 0;
     bool                      done_f = false;
     DriverStatus              status = RETRYING;
+
+    static inline const char* status_to_string(DriverStatus s) {
+      switch (s) {
+        case STP_DIR_OK:    return "STEP/DIR Mode: Success";
+        case POS_OK:        return "Internal POS/VEL Mode: Success";
+        case RETRYING:      return "Retrying Driver Check";
+        case RETRYING_COMM: return "Retrying (Comm)";
+        case RETRYING_ENN:  return "Retrying (ENN)";
+        case TIMEOUT:       return "Timeout (500 ms)";
+        case COMM_ERR:      return "Timeout + Comm Error";
+        case ENN_ERR:       return "Timeout + ENN Error";
+        case E_STOPPED:     return "Driver Software E-Stop is latched, reset the driver";
+      default:            return "Unknown";
+      }
+    }
     
     void reset_driver();
     void check_driver();
