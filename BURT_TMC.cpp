@@ -152,14 +152,10 @@ void StepperMotor::write_settings() {
 void StepperMotor::setup() {
   Serial.print("Initializing motor ");
   Serial.print(config.name);
-  Serial.print("... ");
-  pinMode(pins.enable, OUTPUT);
-  digitalWrite(pins.enable, LOW);
-  if (limitSwitch.pin != -1) pinMode(limitSwitch.pin, INPUT_PULLUP);
+  Serial.println("... ");
   reset_driver();
-  check_driver();
-  write_settings();
-  Serial.println("Done!");
+  Serial.print("  => ");
+  Serial.println(status_to_string(status));
 }
 
 void StepperMotor::calibrate() {
