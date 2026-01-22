@@ -163,10 +163,10 @@ void StepperMotor::calibrate() {
   // while (!limitSwitch.isPressed()) {
   //   moveBySteps(10 * limitSwitch.direction);
   // }
-  stop();
-  int limitSteps = limitSwitch.position * config.stepsPerUnit;
-  // limitSwitch.offset = limitSteps - driver.XACTUAL() * limitSwitch.direction;
-  limitSwitch.offset = -driver.XACTUAL();
+  // stop();
+  // int limitSteps = limitSwitch.position * config.stepsPerUnit;
+  // // limitSwitch.offset = limitSteps - driver.XACTUAL() * limitSwitch.direction;
+  // limitSwitch.offset = -driver.XACTUAL();
 }
 
 void StepperMotor::update() {
