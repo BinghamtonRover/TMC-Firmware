@@ -70,8 +70,7 @@ void StepperMotor::resetDriver() {
         start_time_ms = last_check_ms = 0;
         done_flag = false;
         status = RETRYING;
-        do
-        {
+        do {
           check_driver();
           delay(1);
         } while (status != POS_OK || !(done_flag));
