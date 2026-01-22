@@ -30,7 +30,7 @@ struct StepDirConfig {
   const float gear_ratio;
 
   // Double Edge
-  const bool dedge;
+  const bool double_edge;
 
   // Current and standstill behavior
   const int     run_current_scale;
