@@ -210,3 +210,52 @@ void StepperMotor::moveBySteps(int steps) {
   int target = driver.XACTUAL() + steps;
   driver.XTARGET(target);
 }
+
+void StepperMotor::e_stop() {
+  // Stop STEP driving
+  analogWrite(pins.step_pin, 0);
+  digitalWrite(pins.step_pin, LOW);
+
+  driver.toff(0); // Disable bridges
+  done_f = true;
+  status = E_STOPPED;
+}
+
+void StepperMotor::clear_e_stop() {
+  // sanity: keep STEP low until configured
+  analogWrite(pins.step_pin, 0);
+  digitalWrite(pins.step_pin, LOW);
+
+  driver.toff(3); // Reenable bridges
+  start_time_ms = last_check_ms = 0;
+  done_f = false;
+  status = RETRYING;
+  check_driver();
+}
+
+void StepperMotor::set_dir(uint8_t direction) {
+  digitalWrite(pins.dir_pin, direction);
+}
+
+void StepperMotor::set_step_hz(uint32_t f_step) {
+  uint32_t f_PWM = config.dedge ? f_step/2 : f_step;
+
+  // Clamp PWM to [20kHz, 200kHz]
+  if (f_PWM < 1000) f_PWM = 1000;
+  if (f_PWM > 200000) f_PWM = 200000;
+
+  analogWriteFrequency(pins.step_pin, f_PWM);
+  analogWrite(pins.step_pin, 128); // 50% duty cycle
+}
+
+void StepperMotor::set_motor_rps(float rps) {
+  // Set DIR
+  // set_dir((rps < 0) ? HIGH : LOW);
+  // rps = fabsf(rps);
+  set_dir(1);
+  // f_step = n_joint*G*N_step*M_res
+  uint32_t f_step = static_cast<uint32_t>(
+    rps*config.gear_ratio*stepsPerRotation*mres + 0.5f
+  );
+  set_step_hz(f_step);
+}
