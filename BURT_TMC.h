@@ -68,6 +68,11 @@ enum DriverStatus : uint8_t {
   E_STOPPED     = 0x60 | 0x00, // 0110 0000 - Not settable in check_driver, latches in e_stop
 };
 
+enum DriverMode {
+  step_dir,
+  int_pos
+};
+
 class StepperMotor {
   private: 
     StepperMotorPins                                pins;
@@ -81,6 +86,7 @@ class StepperMotor {
     uint32_t                  last_check_ms = 0;
     bool                      done_f = false;
     DriverStatus              status = RETRYING;
+    DriverMode                mode;
 
     static inline const char* status_to_string(DriverStatus s) {
       switch (s) {
@@ -100,8 +106,6 @@ class StepperMotor {
     void reset_driver();
     void check_driver();
     void write_settings();
-
-    bool step_dir_mode;
 
   public: 
     StepperMotor(StepperMotorPins pins, StepDirConfig      config);

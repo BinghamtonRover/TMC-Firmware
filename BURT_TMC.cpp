@@ -5,15 +5,15 @@ const int blockDelay = 10;  // ms
 StepperMotor::StepperMotor(StepperMotorPins pins, StepDirConfig config) {
   StepperMotorPins StepperMotor::pins;
   StepDirConfig StepperMotor::config;
-  StepperMotor::step_dir_mode = true;
-  driver(TMC5160Stepper(SPI, pins.chipSelect, 0.075))
+  StepperMotor::mode = step_dir;
+  driver(TMC5160Stepper(SPI, pins.chipSelect, 0.075));
 }
 
 StepperMotor::StepperMotor(StepperMotorPins pins, InternalRampConfig config) {
   StepperMotorPins StepperMotor::pins;
   InternalRampConfig StepperMotor::config;
-  StepperMotor::step_dir_mode = false;
-  driver(TMC5160Stepper(SPI, pins.chipSelect, 0.075))
+  StepperMotor::mode = int_pos;
+  driver(TMC5160Stepper(SPI, pins.chipSelect, 0.075));
   }
 
 bool StepperMotor::isMoving() {
@@ -39,7 +39,7 @@ double StepperMotor::targetPosition() {
 void StepperMotor::presetup() {
   pinMode(pins.chipSelect, OUTPUT);
   digitalWrite(pins.chipSelect, HIGH);
-  if (step_dir_mode) {
+  if (mode == step_dir) {
     pinMode(pins.step_pin, OUTPUT);
     pinMode(pins.dir_pin, OUTPUT);
     digitalWrite(pins.step_pin, LOW);
@@ -49,34 +49,40 @@ void StepperMotor::presetup() {
 
 void StepperMotor::reset_driver() {
   if (status == E_STOPPED) return;
-  if (step_dir_mode) {
-    driver.begin();
-    driver.reset();
-    start_time_ms = last_check_ms = 0;
-    done_f = false;
-    status = RETRYING;
-    do
-    {
-      check_driver();
-      delay(1);
-    } while (status != STP_DIR_OK);
-    write_settings();
-    Serial.print("Driver SD Mode status: ");
-    Serial.println(driver.sd_mode());
-  } else if (!step_dir_mode) {
-    driver.begin();
-    driver.reset();
-    start_time_ms = last_check_ms = 0;
-    done_f = false;
-    status = RETRYING;
-    do
-    {
-      check_driver();
-      delay(1);
-    } while (status != POS_OK);
-    write_settings();
-    Serial.print("Driver is in Internal Ramp Mode");
-  }
+  switch (mode) {
+      case step_dir:
+        driver.begin();
+        driver.reset();
+        start_time_ms = last_check_ms = 0;
+        done_f = false;
+        status = RETRYING;
+        do
+        {
+          check_driver();
+          delay(1);
+        } while (status != STP_DIR_OK);
+        write_settings();
+        Serial.print("Driver SD Mode status: ");
+        Serial.println(driver.sd_mode());
+        break;
+      case (int_pos):
+        driver.begin();
+        driver.reset();
+        start_time_ms = last_check_ms = 0;
+        done_f = false;
+        status = RETRYING;
+        do
+        {
+          check_driver();
+          delay(1);
+        } while (status != POS_OK);
+        write_settings();
+        Serial.print("Driver is in Internal Ramp Mode");
+        break;
+      default: 
+        Serial.println("Error: Motor not configured in S/D or Int Pos Mode");
+        break;
+      }
 }
 
 void StepperMotor::check_driver() {
