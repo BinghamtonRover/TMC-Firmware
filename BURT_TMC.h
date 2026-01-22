@@ -68,8 +68,8 @@ enum DriverStatus : uint8_t {
 
 class StepperMotor {
   private: 
-    StepperMotorPins   pins;
-		TMC5160Stepper     driver;
+    StepperMotorPins                                pins;
+		TMC5160Stepper                                  driver;
     std::variant<StepDirConfig, InternalRampConfig> config;
 
     void reset_driver();
@@ -79,7 +79,7 @@ class StepperMotor {
     bool step_dir_mode;
 
   public: 
-    StepperMotor(StepperMotorPins pins, StepDirConfig config);
+    StepperMotor(StepperMotorPins pins, StepDirConfig      config);
     StepperMotor(StepperMotorPins pins, InternalRampConfig config);
 
     bool isMoving();
