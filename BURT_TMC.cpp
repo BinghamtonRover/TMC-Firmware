@@ -54,7 +54,7 @@ void StepperMotor::resetDriver() {
         driver.begin();
         driver.reset();
         start_time_ms = last_check_ms = 0;
-        done_f = false;
+        done_flag = false;
         status = RETRYING;
         do
         {
@@ -69,7 +69,7 @@ void StepperMotor::resetDriver() {
         driver.begin();
         driver.reset();
         start_time_ms = last_check_ms = 0;
-        done_f = false;
+        done_flag = false;
         status = RETRYING;
         do
         {
@@ -86,7 +86,7 @@ void StepperMotor::resetDriver() {
 }
 
 void StepperMotor::checkDriver() {
-  if (done_f || (status == E_STOPPED)) return;
+  if (done_flag || (status == E_STOPPED)) return;
   if (!start_time_ms) start_time_ms = millis();
   uint32_t now = millis();
   if (now - last_check_ms >= retry_delay_ms) {
@@ -102,17 +102,17 @@ void StepperMotor::checkDriver() {
     }
     else if (ioin.sd_mode) {
       // Step/Dir Mode Good
-      done_f = true;
+      done_flag = true;
       status = STP_DIR_OK;
     } 
     else {
       // Internal Ramp Mode Good
-      done_f = true;
+      done_flag = true;
       status = POS_OK;
     }
-    if (((now - start_time_ms) > TIMEOUT_MS) && !(done_f)){
+    if (((now - start_time_ms) > TIMEOUT_MS) && !(done_flag)){
       status |= 0x80; // Change Error Code to Timeout version
-      done_f = true;
+      done_flag = true;
     }
   }
 }
@@ -227,7 +227,7 @@ void StepperMotor::eStop() {
   digitalWrite(pins.step_pin, LOW);
 
   driver.toff(0); // Disable bridges
-  done_f = true;
+  done_flag = true;
   status = E_STOPPED;
 }
 
@@ -238,7 +238,7 @@ void StepperMotor::clearEStop() {
 
   driver.toff(3); // Reenable bridges
   start_time_ms = last_check_ms = 0;
-  done_f = false;
+  done_flag = false;
   status = RETRYING;
   check_driver();
 }
