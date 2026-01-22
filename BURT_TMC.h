@@ -122,4 +122,11 @@ class StepperMotor {
     void moveBy(double offset);
     void moveToSteps(int steps);
     void moveBySteps(int steps);
+
+    void e_stop();
+    void clear_e_stop();
+
+    void set_motor_rps(float rps);
+    void set_dir(uint8_t direction);
+    void set_step_hz(uint32_t f_step);
 };
