@@ -23,9 +23,18 @@ struct StepperMotorPins {
   const uint8_t dir_pin;
 };
 
-struct StepDirConfig {
-  const char* name; // Motor identifier
+enum DriverMode {
+  STEP_DIR_MODE,
+  INT_POS_MODE,
+};
 
+struct StepperGeneralConfig {
+  const char* name;
+  DriverMode  mode;
+  float       steps_per_unit;
+}
+
+struct StepDirConfig {
   // Kinematics
   const float gear_ratio;
 
@@ -48,11 +57,9 @@ struct StepDirConfig {
 };
 
 struct InternalRampConfig {
-  const char* name;
   int         current;
   int         speed;
   int         acceleration;
-  float       steps_per_unit;
 };
 
 enum DriverStatus : uint8_t {
@@ -68,23 +75,22 @@ enum DriverStatus : uint8_t {
   E_STOPPED     = 0x60 | 0x00, // 0110 0000 - Not settable in check_driver, latches in e_stop
 };
 
-enum DriverMode {
-  STEP_DIR_MODE,
-  INT_POS_MODE,
-};
-
 class StepperMotor {
 private:
-  StepperMotorPins                                pins;
-  TMC5160Stepper                                  driver;
-  std::variant<StepDirConfig, InternalRampConfig> config;
+  StepperGeneralConfig general;
+  StepperMotorPins     pins;
+  TMC5160Stepper       driver;
+  union { 
+    StepDirConfig stepDir;
+    InternalRampConfig ramp;
+  } config;
 
   // Vars for check_driver
   static constexpr uint32_t timeout_ms     = 500;
   static constexpr uint8_t  retry_delay_ms = 25;
   uint32_t                  start_time_ms  = 0;
   uint32_t                  last_check_ms  = 0;
-  bool                      done_flag         = false;
+  bool                      done_flag      = false;
   DriverStatus              status         = RETRYING;
   DriverMode                mode;
 

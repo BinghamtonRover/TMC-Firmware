@@ -2,19 +2,26 @@
 
 const int blockDelay = 10;  // ms
 
-StepperMotor::StepperMotor(StepperMotorPins pins, StepDirConfig config) :
-  pins(pins),
-  config(config),
-  mode(STEP_DIR_MODE),
-  driver(TMC5160Stepper(SPI, pins.chip_select, 0.075))
-  { }
+StepperMotor::StepperMotor(const StepperMotorPins &pins,
+                           const StepperGeneralConfig &general,
+                           const StepDirConfig &config)
+    : pins(pins),
+      general(general),
+      driver(TMC5160Stepper(SPI, pins.chipSelect, 0.075))
+{
+  config.stepDir = config;
+}
 
-StepperMotor::StepperMotor(StepperMotorPins pins, InternalRampConfig config) :
-  pins(pins),
-  config(config),
-  mode(INT_POS_MODE),
-  driver(TMC5160Stepper(SPI, pins.chip_select, 0.075))
-  { }
+StepperMotor::StepperMotor(const StepperMotorPins& pins, 
+                           const StepperGeneralConfig& general,
+                           const InternalRampConfig& config
+                          )                    
+: pins(pins),
+  general(general),
+  driver(TMC5160Stepper(SPI, pins.chipSelect, 0.075))
+  { 
+    config.ramp = config;
+  }
 
 bool StepperMotor::isMoving() {
   return driver.XTARGET() != driver.XACTUAL();
