@@ -24,12 +24,11 @@ struct StepperMotorPins {
 
 enum DriverMode {
   STEP_DIR_MODE,
-  INT_POS_MODE,
+  INT_RAMP_MODE,
 };
 
 struct StepperGeneralConfig {
   const char* name;
-  DriverMode  mode;
   float       steps_per_unit;
 }
 
@@ -75,12 +74,11 @@ enum DriverStatus : uint8_t {
 };
 
 class StepperMotor {
-private:
-  StepperMotor(const StepperMotorPins& pins, const StepperGeneralConfig& general, const StepDirConfig& cfg);
-  StepperMotor(const StepperMotorPins& pins, const StepperGeneralConfig& general, const InternalRampConfig& cfg); 
+private: 
   StepperGeneralConfig general;
   StepperMotorPins     pins;
   TMC5160Stepper       driver;
+  DriverMode           mode;
   union { 
     StepDirConfig stepDir;
     InternalRampConfig ramp;
@@ -93,7 +91,6 @@ private:
   uint32_t                  last_check_ms  = 0;
   bool                      done_flag      = false;
   DriverStatus              status         = RETRYING;
-  DriverMode                mode;
 
   static inline const char* statusToString(DriverStatus s) {
     switch (s) {
@@ -115,8 +112,12 @@ private:
   void writeSettings();
 
 public:
-  StepperMotor(StepperMotorPins pins, StepDirConfig      config);
-  StepperMotor(StepperMotorPins pins, InternalRampConfig config);
+  StepperMotor(const StepperMotorPins& p,
+               const StepperGeneralConfig& g, 
+               const StepDirConfig& cfg);
+  StepperMotor(const StepperMotorPins& p, 
+               const StepperGeneralConfig& g, 
+               const InternalRampConfig& cfg);
 
   bool   isMoving();
   int    currentSteps();
