@@ -29,19 +29,19 @@ bool StepperMotor::isMoving() {
 }
 
 int StepperMotor::currentSteps() {
-  // return driver.XACTUAL() + limitSwitch.offset + limitSwitch.position * config.steps_per_unit;
+  // return driver.XACTUAL() + limitSwitch.offset + limitSwitch.position * config.ramp.steps_per_unit;
 }
 
 int StepperMotor::targetSteps() {
-  // return driver.XTARGET() + limitSwitch.offset + limitSwitch.position * config.steps_per_unit;
+  // return driver.XTARGET() + limitSwitch.offset + limitSwitch.position * config,ramp.steps_per_unit;
 }
 
 double StepperMotor::currentPosition() {
-  return currentSteps() / config.steps_per_unit;
+  return currentSteps() / general.steps_per_unit;
 }
 
 double StepperMotor::targetPosition() {
-  return targetSteps() / config.steps_per_unit;
+  return targetSteps() / general.steps_per_unit;
 }
 
 void StepperMotor::preSetup() {
@@ -128,40 +128,40 @@ void StepperMotor::writeSettings() {
     case STEP_DIR_MODE:
       // General Setup
       driver.GSTAT(0b111); // Clear latched errors
-      driver.en_pwm_mode(config.stealth_chop_en); // Enable stealthChop if configured
+      driver.en_pwm_mode(config.stepDir.stealth_chop_en); // Enable stealthChop if configured
       driver.multistep_filt(true); // Enable internal filtering on STEP pin
-      driver.shaft(config.invert_dir); // Invert DIR if configured
+      driver.shaft(config.stepDir.invert_dir); // Invert DIR if configured
       driver.GLOBAL_SCALER(200); // Scales values pertaining to current by (200)
 
       // Current and Delays
-      driver.irun(config.run_current_scale); // Scale IRUN to config
-      driver.ihold(config.hold_current_scale); // Scale IHOLD to config
-      driver.iholddelay(config.ihold_delay_scale); // Scale IHOLDDELAY to config
+      driver.irun(config.stepDir.run_current_scale); // Scale IRUN to config
+      driver.ihold(config.stepDir.hold_current_scale); // Scale IHOLD to config
+      driver.iholddelay(config.stepDir.ihold_delay_scale); // Scale IHOLDDELAY to config
       driver.TPOWERDOWN(5); // Delay from StandStill -> Powerdown
 
       // Threshold to switch from StealthChop to SpreadCycle
       // TPWMTHRS ~= f_clk/((joint_deg_per_s/360)*GEAR_RATIO*STEPS_PER_REV*(256 / MRES))
-      driver.TPWMTHRS(config.spread_cycle_start_thrs);  
+      driver.TPWMTHRS(config.stepDir.spread_cycle_start_thrs);  
 
       // Chopper Configuration (SpreadCycle + MicroPlyer)
       driver.intpol(1); // MRES extrapolated to 256usteps internally to smooth motion (STEP/DIR ONLY)
       driver.mres(0b0100); // %0001 … %1000: 128, 64, 32, 16, 8, 4, 2, FULLSTEP, 0b0100 = 16, allows lower STEP freq from MCU
       driver.tbl(2); // Set comparator blank time (0-3 => 16, 24, 36, 54) (Recommended 1 or 2)
-      driver.dedge(config.dedge); // 1 uses falling edge as second step pulse, allows lower step freq from MCU but requires exactly 50% duty cycle
+      driver.dedge(config.stepDir.dedge); // 1 uses falling edge as second step pulse, allows lower step freq from MCU but requires exactly 50% duty cycle
       driver.toff(3); // Off time setting controls duration of slow decay phase, NCLK= 24 + 32*TOFF
       break;
     case INT_RAMP_MODE:
       driver.GSTAT(7);
-      driver.rms_current(config.current);
+      driver.rms_current(config.stepDir.current);
       driver.tbl(2);
       driver.toff(9);
       driver.pwm_freq(1);
-      driver.a1(config.acceleration);
-      driver.v1(config.speed);
-      driver.AMAX(config.acceleration);
-      driver.VMAX(config.speed);
-      driver.DMAX(config.acceleration);
-      driver.d1(config.acceleration);
+      driver.a1(config.ramp.acceleration);
+      driver.v1(config.ramp.speed);
+      driver.AMAX(config.ramp.acceleration);
+      driver.VMAX(config.ramp.speed);
+      driver.DMAX(config.ramp.acceleration);
+      driver.d1(config.ramp.acceleration);
       driver.vstop(100);
       driver.vstart(100);
       driver.RAMPMODE(0);
@@ -173,7 +173,7 @@ void StepperMotor::writeSettings() {
 
 void StepperMotor::setup() {
   Serial.print("Initializing motor ");
-  Serial.print(config.name);
+  Serial.print(general.name);
   Serial.println("... ");
   reset_driver();
   Serial.print("  => ");
@@ -186,7 +186,7 @@ void StepperMotor::calibrate() {
   //   moveBySteps(10 * limitSwitch.direction);
   // }
   // stop();
-  // int limitSteps = limitSwitch.position * config.stepsPerUnit;
+  // int limitSteps = limitSwitch.position * general.stepsPerUnit;
   // // limitSwitch.offset = limitSteps - driver.XACTUAL() * limitSwitch.direction;
   // limitSwitch.offset = -driver.XACTUAL();
 }
@@ -209,12 +209,12 @@ void StepperMotor::block() {
 
 void StepperMotor::moveTo(double position) {
   // if (!limitSwitch.isValid(position)) return;
-  // int steps = position * config.steps_per_unit;
+  // int steps = position * general.steps_per_unit;
   // moveToSteps(steps);
 }
 
 void StepperMotor::moveBy(double offset) {
-  int steps = offset * config.steps_per_unit;
+  int steps = offset * general.steps_per_unit;
   moveBySteps(steps);
 }
 
@@ -254,7 +254,7 @@ void StepperMotor::setDir(uint8_t direction) {
 }
 
 void StepperMotor::setStepHz(uint32_t f_step) {
-  uint32_t f_PWM = config.double_edge ? f_step/2 : f_step;
+  uint32_t f_PWM = config.stepDir.double_edge ? f_step/2 : f_step;
 
   // Clamp PWM to [20kHz, 200kHz]
   if (f_PWM < min_freq) f_PWM = min_freq;
@@ -270,7 +270,7 @@ void StepperMotor::setMotorRps(float rps) {
   rps = fabsf(rps);
   // FORMULA: f_step = n_joint*G*N_step*M_res
   uint32_t f_step = static_cast<uint32_t>(
-    rps*config.gear_ratio*steps_per_rotation*mres + 0.5f
+    rps*config.stepDir.gear_ratio*steps_per_rotation*mres + 0.5f
   );
   set_step_hz(f_step);
 }
