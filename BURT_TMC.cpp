@@ -7,7 +7,7 @@ StepperMotor::StepperMotor(const StepperMotorPins& p,
                            const StepDirConfig& cfg)
     : pins(p),
       general(g),
-      driver(TMC5160Stepper(SPI, p.chipSelect, 0.075)),
+      driver(TMC5160Stepper(SPI, p.chip_select, 0.075)),
       mode(STEP_DIR_MODE)
 {
   config.stepDir = cfg;
@@ -18,7 +18,7 @@ StepperMotor::StepperMotor(const StepperMotorPins& p,
                            const InternalRampConfig& cfg)
     : pins(p),
       general(g),
-      driver(TMC5160Stepper(SPI, p.chipSelect, 0.075)),
+      driver(TMC5160Stepper(SPI, p.chip_select, 0.075)),
       mode(INT_RAMP_MODE)
 {
   config.ramp = cfg;
