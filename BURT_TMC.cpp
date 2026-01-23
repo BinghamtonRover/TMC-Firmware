@@ -2,30 +2,30 @@
 
 const int blockDelay = 10;  // ms
 
-StepperMotor::StepperMotor(StepperMotorPins pins, StepDirConfig config) {
-  StepperMotorPins StepperMotor::pins;
-  StepDirConfig StepperMotor::config;
-  StepperMotor::mode = STEP_DIR_MODE;
-  driver(TMC5160Stepper(SPI, pins.chip_select, 0.075));
-}
+StepperMotor::StepperMotor(StepperMotorPins pins, StepDirConfig config) :
+  pins(pins),
+  config(config),
+  mode(STEP_DIR_MODE),
+  driver(TMC5160Stepper(SPI, pins.chip_select, 0.075))
+  { }
 
-StepperMotor::StepperMotor(StepperMotorPins pins, InternalRampConfig config) {
-  StepperMotorPins StepperMotor::pins;
-  InternalRampConfig StepperMotor::config;
-  StepperMotor::mode = INT_POS_MODE;
-  driver(TMC5160Stepper(SPI, pins.chip_select, 0.075));
-}
+StepperMotor::StepperMotor(StepperMotorPins pins, InternalRampConfig config) :
+  pins(pins),
+  config(config),
+  mode(INT_POS_MODE),
+  driver(TMC5160Stepper(SPI, pins.chip_select, 0.075))
+  { }
 
 bool StepperMotor::isMoving() {
   return driver.XTARGET() != driver.XACTUAL();
 }
 
 int StepperMotor::currentSteps() {
-  return driver.XACTUAL() + limitSwitch.offset + limitSwitch.position * config.steps_per_unit;
+  // return driver.XACTUAL() + limitSwitch.offset + limitSwitch.position * config.steps_per_unit;
 }
 
 int StepperMotor::targetSteps() {
-  return driver.XTARGET() + limitSwitch.offset + limitSwitch.position * config.steps_per_unit;
+  // return driver.XTARGET() + limitSwitch.offset + limitSwitch.position * config.steps_per_unit;
 }
 
 double StepperMotor::currentPosition() {
@@ -184,11 +184,11 @@ void StepperMotor::calibrate() {
 }
 
 void StepperMotor::update() {
-  int target = driver.XTARGET();
-  int current = driver.XACTUAL();
-  bool isMovingTowardsLimit = limitSwitch.direction > 0
-    ? target > current : target < current;
-  if (limitSwitch.isPressed() && limitSwitch.isBlocking && isMovingTowardsLimit) stop();
+  // int target = driver.XTARGET();
+  // int current = driver.XACTUAL();
+  // bool isMovingTowardsLimit = limitSwitch.direction > 0
+  //   ? target > current : target < current;
+  // if (limitSwitch.isPressed() && limitSwitch.isBlocking && isMovingTowardsLimit) stop();
 }
 
 void StepperMotor::stop() {
@@ -200,9 +200,9 @@ void StepperMotor::block() {
 }
 
 void StepperMotor::moveTo(double position) {
-  if (!limitSwitch.isValid(position)) return;
-  int steps = position * config.steps_per_unit;
-  moveToSteps(steps);
+  // if (!limitSwitch.isValid(position)) return;
+  // int steps = position * config.steps_per_unit;
+  // moveToSteps(steps);
 }
 
 void StepperMotor::moveBy(double offset) {
