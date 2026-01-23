@@ -112,11 +112,11 @@ private:
   void writeSettings();
 
 public:
-  StepperMotor(const StepperMotorPins& p,
-               const StepperGeneralConfig& g, 
+  StepperMotor(const StepperGeneralConfig& g,
+               const StepperMotorPins& p,
                const StepDirConfig& cfg);
-  StepperMotor(const StepperMotorPins& p, 
-               const StepperGeneralConfig& g, 
+  StepperMotor(const StepperGeneralConfig& g,
+               const StepperMotorPins& p,
                const InternalRampConfig& cfg);
 
   bool   isMoving();

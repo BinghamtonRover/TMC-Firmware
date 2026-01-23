@@ -30,10 +30,12 @@ bool StepperMotor::isMoving() {
 
 int StepperMotor::currentSteps() {
   // return driver.XACTUAL() + limitSwitch.offset + limitSwitch.position * config.ramp.steps_per_unit;
+  return -1;
 }
 
 int StepperMotor::targetSteps() {
   // return driver.XTARGET() + limitSwitch.offset + limitSwitch.position * config,ramp.steps_per_unit;
+  return -1;
 }
 
 double StepperMotor::currentPosition() {
@@ -65,10 +67,10 @@ void StepperMotor::resetDriver() {
         done_flag = false;
         status = RETRYING;
         do {
-          check_driver();
+          checkDriver();
           delay(1);
         } while (status != STP_DIR_OK || !(done_flag));
-        write_settings();
+        writeSettings();
         Serial.print("Driver SD Mode status: ");
         Serial.println(driver.sd_mode());
         break;
@@ -79,10 +81,10 @@ void StepperMotor::resetDriver() {
         done_flag = false;
         status = RETRYING;
         do {
-          check_driver();
+          checkDriver();
           delay(1);
         } while (status != POS_OK || !(done_flag));
-        write_settings();
+        writeSettings();
         Serial.println("Driver is in Internal Ramp Mode");
         break;
       default: 
@@ -116,7 +118,7 @@ void StepperMotor::checkDriver() {
       done_flag = true;
       status = POS_OK;
     }
-    if (((now - start_time_ms) > TIMEOUT_MS) && !(done_flag)){
+    if (((now - start_time_ms) > timeout_ms) && !(done_flag)){
       status |= 0x80; // Change Error Code to Timeout version
       done_flag = true;
     }
@@ -124,7 +126,7 @@ void StepperMotor::checkDriver() {
 }
 
 void StepperMotor::writeSettings() {
-  switch (mode) {}
+  switch (mode) {
     case STEP_DIR_MODE:
       // General Setup
       driver.GSTAT(0b111); // Clear latched errors
@@ -147,12 +149,12 @@ void StepperMotor::writeSettings() {
       driver.intpol(1); // MRES extrapolated to 256usteps internally to smooth motion (STEP/DIR ONLY)
       driver.mres(0b0100); // %0001 … %1000: 128, 64, 32, 16, 8, 4, 2, FULLSTEP, 0b0100 = 16, allows lower STEP freq from MCU
       driver.tbl(2); // Set comparator blank time (0-3 => 16, 24, 36, 54) (Recommended 1 or 2)
-      driver.dedge(config.stepDir.dedge); // 1 uses falling edge as second step pulse, allows lower step freq from MCU but requires exactly 50% duty cycle
+      driver.dedge(config.stepDir.double_edge); // 1 uses falling edge as second step pulse, allows lower step freq from MCU but requires exactly 50% duty cycle
       driver.toff(3); // Off time setting controls duration of slow decay phase, NCLK= 24 + 32*TOFF
       break;
     case INT_RAMP_MODE:
       driver.GSTAT(7);
-      driver.rms_current(config.stepDir.current);
+      driver.rms_current(config.ramp.current);
       driver.tbl(2);
       driver.toff(9);
       driver.pwm_freq(1);
@@ -175,9 +177,9 @@ void StepperMotor::setup() {
   Serial.print("Initializing motor ");
   Serial.print(general.name);
   Serial.println("... ");
-  reset_driver();
+  resetDriver();
   Serial.print("  => ");
-  Serial.println(status_to_string(status));
+  Serial.println(statusToString(status));
 }
 
 void StepperMotor::calibrate() {
@@ -246,7 +248,7 @@ void StepperMotor::clearEStop() {
   start_time_ms = last_check_ms = 0;
   done_flag = false;
   status = RETRYING;
-  check_driver();
+  checkDriver();
 }
 
 void StepperMotor::setDir(uint8_t direction) {
@@ -266,11 +268,11 @@ void StepperMotor::setStepHz(uint32_t f_step) {
 
 void StepperMotor::setMotorRps(float rps) {
   // Set DIR
-  set_dir((rps < 0) ? HIGH : LOW);
+  setDir((rps < 0) ? HIGH : LOW);
   rps = fabsf(rps);
   // FORMULA: f_step = n_joint*G*N_step*M_res
   uint32_t f_step = static_cast<uint32_t>(
     rps*config.stepDir.gear_ratio*steps_per_rotation*mres + 0.5f
   );
-  set_step_hz(f_step);
+  setStepHz(f_step);
 }
