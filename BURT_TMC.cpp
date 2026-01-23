@@ -246,7 +246,7 @@ void StepperMotor::setDir(uint8_t direction) {
 }
 
 void StepperMotor::setStepHz(uint32_t f_step) {
-  uint32_t f_PWM = config.dedge ? f_step/2 : f_step;
+  uint32_t f_PWM = config.double_edge ? f_step/2 : f_step;
 
   // Clamp PWM to [20kHz, 200kHz]
   if (f_PWM < min_freq) f_PWM = min_freq;
