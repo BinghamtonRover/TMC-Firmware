@@ -30,28 +30,28 @@ enum DriverMode {
 struct StepperGeneralConfig {
   const char* name;
   float       steps_per_unit;
-}
+};
 
 struct StepDirConfig {
   // Kinematics
-  const float gear_ratio;
+  float gear_ratio;
 
   // Double Edge
-  const bool double_edge;
+  bool double_edge;
 
   // Current and standstill behavior
-  const int     run_current_scale;
-  const int     hold_current_scale;
-  const uint8_t ihold_delay_scale;
+  int     run_current_scale;
+  int     hold_current_scale;
+  uint8_t ihold_delay_scale;
 
   // Wiring direction
-  const bool invert_dir;
+  bool invert_dir;
 
   // Control Mode
   // StealthChop/SpreadCycle (Higher Speed control mode) Thresholds
   // If needed: set spread_cycle_start above _stop for hysteresis
-  const bool     stealth_chop_en;
-  const uint32_t spread_cycle_start_thrs;
+  bool     stealth_chop_en;
+  uint32_t spread_cycle_start_thrs;
 };
 
 struct InternalRampConfig {
