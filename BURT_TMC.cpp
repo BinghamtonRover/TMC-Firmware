@@ -60,33 +60,58 @@ void StepperMotor::preSetup() {
 void StepperMotor::resetDriver() {
   if (status == E_STOPPED) return;
   switch (mode) {
-      case STEP_DIR_MODE:
+      case STEP_DIR_MODE: {
         driver.begin();
         driver.reset();
+        delay(5);
+        auto raw = driver.IOIN();
+        TMC5160Stepper::IOIN_t i { raw };
+
+        Serial.print("IOIN raw=0x"); Serial.println(raw, HEX);
+        Serial.print("VERSION=0x"); Serial.println(i.version, HEX);
+        Serial.print("SD_MODE="); Serial.println(i.sd_mode);
+        Serial.print("DRV_ENN="); Serial.println(i.drv_enn);
         start_time_ms = last_check_ms = 0;
         done_flag = false;
         status = RETRYING;
         do {
           checkDriver();
           delay(1);
-        } while (status != STP_DIR_OK || !(done_flag));
+        } while (!done_flag);
+        if (status != STP_DIR_OK) { // in STEP_DIR_MODE branch
+          Serial.print("SD init failed: ");
+          Serial.println(statusToString(status));
+          return;
+        }
         writeSettings();
         Serial.print("Driver SD Mode status: ");
         Serial.println(driver.sd_mode());
-        break;
-      case (INT_RAMP_MODE):
+        break; }
+      case (INT_RAMP_MODE): {
         driver.begin();
         driver.reset();
+        auto raw = driver.IOIN();
+        TMC5160Stepper::IOIN_t i { raw };
+
+        Serial.print("IOIN raw=0x"); Serial.println(raw, HEX);
+        Serial.print("VERSION=0x"); Serial.println(i.version, HEX);
+        Serial.print("SD_MODE="); Serial.println(i.sd_mode);
+        Serial.print("DRV_ENN="); Serial.println(i.drv_enn);
         start_time_ms = last_check_ms = 0;
         done_flag = false;
         status = RETRYING;
         do {
           checkDriver();
           delay(1);
-        } while (status != POS_OK || !(done_flag));
+        } while (!done_flag);
+        if (status != POS_OK) {
+          Serial.print("Ramp init failed: ");
+          Serial.println(statusToString(status));
+          return;
+        }
         writeSettings();
         Serial.println("Driver is in Internal Ramp Mode");
-        break;
+        break; }
       default: 
         Serial.println("Error: Motor not configured in S/D or Int Pos Mode");
         break;
@@ -107,17 +132,26 @@ void StepperMotor::checkDriver() {
     else if (ioin.drv_enn) {
       // Driver Enable Error (Hardware) [EN pin is not tied to GND]
       status = RETRYING_ENN;
-    }
-    else if (ioin.sd_mode) {
-      // Step/Dir Mode Good
-      done_flag = true;
-      status = STP_DIR_OK;
     } 
-    else {
-      // Internal Ramp Mode Good
-      done_flag = true;
-      status = POS_OK;
+    else { // COMM good
+      if (mode == STEP_DIR_MODE) {
+        if (ioin.sd_mode) { 
+          status = STP_DIR_OK; 
+          done_flag = true; 
+        }
+      else { 
+        status = RETRYING; // wrong mode
+      }   
+    } else { // INT_RAMP_MODE
+      if (!ioin.sd_mode) { 
+        status = POS_OK; 
+        done_flag = true; 
+      }
+      else { 
+        status = RETRYING; 
+      }
     }
+  }
     if ((now - start_time_ms) > timeout_ms && !done_flag) {
       if (status == RETRYING_COMM)      status = COMM_ERR;
       else if (status == RETRYING_ENN)  status = ENN_ERR;
