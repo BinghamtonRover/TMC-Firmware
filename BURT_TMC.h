@@ -1,6 +1,5 @@
 #pragma once
 #include <Arduino.h>
-#include <variant>
 #include "TmcStepper.h"
 #include "limit.h"
 
@@ -77,6 +76,8 @@ enum DriverStatus : uint8_t {
 
 class StepperMotor {
 private:
+  StepperMotor(const StepperMotorPins& pins, const StepperGeneralConfig& general, const StepDirConfig& cfg);
+  StepperMotor(const StepperMotorPins& pins, const StepperGeneralConfig& general, const InternalRampConfig& cfg); 
   StepperGeneralConfig general;
   StepperMotorPins     pins;
   TMC5160Stepper       driver;
