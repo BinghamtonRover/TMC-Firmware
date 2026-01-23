@@ -118,8 +118,10 @@ void StepperMotor::checkDriver() {
       done_flag = true;
       status = POS_OK;
     }
-    if (((now - start_time_ms) > timeout_ms) && !(done_flag)){
-      status |= 0x80; // Change Error Code to Timeout version
+    if ((now - start_time_ms) > timeout_ms && !done_flag) {
+      if (status == RETRYING_COMM)      status = COMM_ERR;
+      else if (status == RETRYING_ENN)  status = ENN_ERR;
+      else                              status = TIMEOUT;
       done_flag = true;
     }
   }
@@ -171,6 +173,7 @@ void StepperMotor::writeSettings() {
     default: 
       Serial.println("Error: Motor not configured in S/D or Int Pos Mode");
       break;
+  }
 }
 
 void StepperMotor::setup() {
