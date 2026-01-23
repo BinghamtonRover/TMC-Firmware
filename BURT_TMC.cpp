@@ -7,21 +7,22 @@ StepperMotor::StepperMotor(const StepperMotorPins &pins,
                            const StepDirConfig &config)
     : pins(pins),
       general(general),
-      driver(TMC5160Stepper(SPI, pins.chipSelect, 0.075))
+      driver(TMC5160Stepper(SPI, pins.chipSelect, 0.075)),
+      mode(STEP_DIR_MODE),
 {
   config.stepDir = config;
 }
 
-StepperMotor::StepperMotor(const StepperMotorPins& pins, 
-                           const StepperGeneralConfig& general,
-                           const InternalRampConfig& config
-                          )                    
-: pins(pins),
-  general(general),
-  driver(TMC5160Stepper(SPI, pins.chipSelect, 0.075))
-  { 
-    config.ramp = config;
-  }
+StepperMotor::StepperMotor(const StepperMotorPins &pins,
+                           const StepperGeneralConfig &general,
+                           const InternalRampConfig &config)
+    : pins(pins),
+      general(general),
+      driver(TMC5160Stepper(SPI, pins.chipSelect, 0.075))
+      mode(INT_RAMP_MODE);
+{
+  config.ramp = config;
+}
 
 bool StepperMotor::isMoving() {
   return driver.XTARGET() != driver.XACTUAL();
@@ -71,7 +72,7 @@ void StepperMotor::resetDriver() {
         Serial.print("Driver SD Mode status: ");
         Serial.println(driver.sd_mode());
         break;
-      case (INT_POS_MODE):
+      case (INT_RAMP_MODE):
         driver.begin();
         driver.reset();
         start_time_ms = last_check_ms = 0;
@@ -149,7 +150,7 @@ void StepperMotor::writeSettings() {
       driver.dedge(config.dedge); // 1 uses falling edge as second step pulse, allows lower step freq from MCU but requires exactly 50% duty cycle
       driver.toff(3); // Off time setting controls duration of slow decay phase, NCLK= 24 + 32*TOFF
       break;
-    case INT_POS_MODE:
+    case INT_RAMP_MODE:
       driver.GSTAT(7);
       driver.rms_current(config.current);
       driver.tbl(2);
