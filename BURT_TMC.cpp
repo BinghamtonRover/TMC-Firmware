@@ -2,22 +2,22 @@
 
 const int blockDelay = 10;  // ms
 
-StepperMotor::StepperMotor(const StepperMotorPins& p,
-                           const StepperGeneralConfig& g,
+StepperMotor::StepperMotor(const StepperGeneralConfig& g,
+                           const StepperMotorPins& p,
                            const StepDirConfig& cfg)
-    : pins(p),
-      general(g),
+    : general(g),
+      pins(p),
       driver(TMC5160Stepper(SPI, p.chip_select, 0.075)),
       mode(STEP_DIR_MODE)
 {
   config.stepDir = cfg;
 }
 
-StepperMotor::StepperMotor(const StepperMotorPins& p,
-                           const StepperGeneralConfig& g,
+StepperMotor::StepperMotor(const StepperGeneralConfig& g,
+                           const StepperMotorPins& p,
                            const InternalRampConfig& cfg)
-    : pins(p),
-      general(g),
+    : general(g),
+      pins(p),
       driver(TMC5160Stepper(SPI, p.chip_select, 0.075)),
       mode(INT_RAMP_MODE)
 {
