@@ -29,13 +29,11 @@ bool StepperMotor::isMoving() {
 }
 
 int StepperMotor::currentSteps() {
-  // return driver.XACTUAL() + limitSwitch.offset + limitSwitch.position * config.ramp.steps_per_unit;
-  return -1;
+  return driver.XACTUAL() + /*limitSwitch.offset + limitSwitch.position **/ config.ramp.steps_per_unit;
 }
 
 int StepperMotor::targetSteps() {
-  // return driver.XTARGET() + limitSwitch.offset + limitSwitch.position * config,ramp.steps_per_unit;
-  return -1;
+  return driver.XTARGET() + /*limitSwitch.offset + limitSwitch.position **/ config.ramp.steps_per_unit;
 }
 
 double StepperMotor::currentPosition() {
