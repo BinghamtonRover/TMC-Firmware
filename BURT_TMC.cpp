@@ -252,8 +252,8 @@ void StepperMotor::block() {
 
 void StepperMotor::moveTo(double position) {
   // if (!limitSwitch.isValid(position)) return;
-  // int steps = position * general.steps_per_unit;
-  // moveToSteps(steps);
+  int steps = position * general.steps_per_unit;
+  moveToSteps(steps);
 }
 
 void StepperMotor::moveBy(double offset) {
