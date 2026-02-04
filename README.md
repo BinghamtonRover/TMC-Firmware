@@ -67,7 +67,7 @@ StepperMotor motor(g, pins, ramp);
 - `moveTo(position_in_units)` and `moveBy(offset_in_units)` accept user units (they use `steps_per_unit` from `StepperGeneralConfig`).
 - `moveToSteps(int32_t steps)` and `moveBySteps(int32_t steps)` operate directly on driver step counters.
 
-#### STEP/DIR mode notes 🔧
+#### STEP/DIR mode notes 
 - Use `setMotorRps(float rps)` to set rotational speed (revolutions per second). Negative values select reverse rotation (the function will set `DIR` accordingly).
 - `setMotorRps()` is only valid in **STEP/DIR mode** — calling it in Internal Ramp mode is a no-op and will print a debug message when `BURT_DEBUG` is defined.
 - You can control STEP frequency directly with `setStepHz(uint32_t f_step)`. If you configured `double_edge = true` in `StepDirConfig`, the effective PWM frequency used is `f_step/2` (this assumes a 50% duty cycle requirement for double-edge). The driver clamps frequencies to safe limits; see `min_freq`/`max_freq` in `BURT_TMC.h`.
@@ -79,7 +79,7 @@ motor.setMotorRps(-0.5f); // 0.5 RPS reverse
 motor.setStepHz(20000);
 ```
 
-#### Internal Ramp mode notes ⚙️
+#### Internal Ramp mode notes 
 - Use `moveTo()` / `moveBy()` / `moveToSteps()` to control position and let the TMC5160 handle acceleration/deceleration using `InternalRampConfig` parameters (`current`, `speed`, `acceleration`).
 - Tune `vstart`, `vstop`, `A1`, `V1`, `AMAX`, and `VMAX` in `writeSettings()` for your mechanical load.
 
