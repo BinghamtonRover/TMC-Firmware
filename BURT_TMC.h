@@ -1,24 +1,35 @@
 #pragma once
 #include <Arduino.h>
+#include <stdint.h>
 #include "TmcStepper.h"
 #include "limit.h"
 
+/**
+ * @file BURT_TMC.h
+ * @brief Stepper motor driver abstraction for TMC5160 supporting STEP/DIR and
+ *        internal ramp (position) modes.
+ */
+
+/** Physical and kinematic constants */
 constexpr float    pi                   = 3.141592653589793f;
 constexpr uint16_t steps_per_rotation   = 200;
 constexpr uint16_t degrees_per_rotation = 360;
 constexpr float    radians_per_rotation = 2.0f * pi;
-constexpr uint16_t mres                 = 16;
-constexpr int      microsteps_per_step  = 256;
+constexpr uint16_t mres                 = 16;               /**< Microstep resolution factor (MRES) */
+constexpr int      microsteps_per_step  = 256;              /**< Microsteps per full step */
 constexpr unsigned min_freq             = 1000;  // Change after testing
 constexpr unsigned max_freq             = 20000; // Change after testing
 
 constexpr float microsteps_per_radian = microsteps_per_step * steps_per_rotation / radians_per_rotation;
 constexpr float microsteps_per_degree = microsteps_per_step * steps_per_rotation / degrees_per_rotation;
 
+/**
+ * @brief Pins required by the low-level driver when operating in STEP/DIR mode
+ */
 struct StepperMotorPins {
-  const uint8_t chip_select;
-  const uint8_t step_pin;
-  const uint8_t dir_pin;
+  const uint8_t chip_select; /**< SPI chip select pin for TMC5160 */
+  const uint8_t step_pin;    /**< STEP pin (for STEP/DIR mode) */
+  const uint8_t dir_pin;     /**< DIR  pin (for STEP/DIR mode) */
 };
 
 enum DriverMode {
@@ -99,6 +110,7 @@ private:
   uint32_t                  last_init_kick_ms = 0;
   bool                      init_in_progress  = false;
   DriverStatus              status            = RETRYING;
+  DriverStatus              prev_status       = RETRYING; /**< last reported status, used for transition logging */
 
   static constexpr uint32_t INIT_KICK_PERIOD_MS = 1000;
 
@@ -137,13 +149,19 @@ public:
   static inline bool isError(DriverStatus s)   { return (s & 0x80) != 0; }
   static inline bool isDone(DriverStatus s)    { return isSuccess(s) || isError(s) || (s == E_STOPPED); }
 
+  /** @brief Is the driver currently driving toward a target? */
   bool   isMoving();
-  int    currentSteps();
-  int    targetSteps();
+  /** @brief Current step counter (driver XACTUAL). Signed 32-bit to allow large/negative counts. */
+  int32_t currentSteps();
+  /** @brief Current target step counter (driver XTARGET). Signed 32-bit to allow large/negative counts. */
+  int32_t targetSteps();
+  /** @brief Position in user units (steps/units configured in StepperGeneralConfig) */
   double currentPosition();
   double targetPosition();
 
+  /** @brief Prepare pins and initial state (call early in setup) */
   void preSetup();
+  /** @brief Begin initialization; non-blocking init is performed by repeated calls to update() */
   void setup();
   void calibrate();
   void update();
@@ -152,12 +170,31 @@ public:
 
   void moveTo(double position);
   void moveBy(double offset);
-  void moveToSteps(int steps);
-  void moveBySteps(int steps);
+  void moveToSteps(int32_t steps);
+  void moveBySteps(int32_t steps);
 
   void eStop();
   void clearEStop();
 
+  /** @brief Read-only access to the driver's last known status */
+  DriverStatus getStatus() const { return status; }
+
+  /**
+   * @brief Non-blocking: starts init and returns immediately. Call `update()` repeatedly
+   * to continue initialization. For convenience, call `waitForInit(timeout_ms)` to block
+   * until init is finished or timed out.
+   * @param timeout_ms maximum time to wait (0 = wait forever)
+   * @return true if initialization succeeded, false on timeout or error
+   */
+  bool waitForInit(uint32_t timeout_ms = 0);
+
+  /** @brief Check if initialization is currently in progress (non-blocking init). */
+  bool isInitInProgress() const { return init_in_progress; }
+
+  /**
+   * @brief Set motor speed in revolutions per second (STEP/DIR only).
+   * @note Negative values drive reverse direction; function is a no-op in other modes.
+   */
   void setMotorRps(float rps);
   void setDir(uint8_t direction);
   void setStepHz(uint32_t f_step);

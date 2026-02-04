@@ -1,4 +1,12 @@
 #include "BURT_TMC.h"
+#include <cmath>
+
+/**
+ * @file BURT_TMC.cpp
+ * @brief Implementation of StepperMotor using TMC5160. Supports STEP/DIR mode
+ *        and internal ramp (position) mode with non-blocking init and
+ *        configurable debug traces (enable with BURT_DEBUG).
+ */
 
 const int blockDelay = 10;  // ms
 
@@ -24,17 +32,20 @@ StepperMotor::StepperMotor(const StepperGeneralConfig& g,
   config.ramp = cfg;
 }
 
+/** @brief True if XTARGET != XACTUAL */
 bool StepperMotor::isMoving() {
   return driver.XTARGET() != driver.XACTUAL();
 }
 
-int StepperMotor::currentSteps() {
-  return driver.XACTUAL(); /*+ limitSwitch.offset + limitSwitch.position * config.ramp.steps_per_unit; */
+/** @brief Current step counter (signed 32-bit) */
+int32_t StepperMotor::currentSteps() {
+  return static_cast<int32_t>(driver.XACTUAL()); /*+ limitSwitch.offset + limitSwitch.position * config.ramp.steps_per_unit; */
 }
 
-int StepperMotor::targetSteps() {
-  return driver.XTARGET(); /*+ limitSwitch.offset + limitSwitch.position * config.ramp.steps_per_unit; */
-}
+/** @brief Target step counter (signed 32-bit) */
+int32_t StepperMotor::targetSteps() {
+  return static_cast<int32_t>(driver.XTARGET()); /*+ limitSwitch.offset + limitSwitch.position * config.ramp.steps_per_unit; */
+} 
 
 double StepperMotor::currentPosition() {
   return currentSteps() / general.steps_per_unit;
@@ -89,30 +100,36 @@ void StepperMotor::tryReset(const unsigned timeout) {
     if (isSuccess(status)) {
       ++init_success_cntr;
       writeSettings();
-        if (mode == INT_RAMP_MODE) Serial.println("Driver is in Internal Ramp Mode");
-        else                       Serial.println("Driver is in STEP/DIR Mode");
-      } else {
-        Serial.print("Init failed: ");
-        Serial.println(statusToString(status));
-      }
+      #if defined(BURT_DEBUG)
+      if (mode == INT_RAMP_MODE) Serial.println("Driver is in Internal Ramp Mode");
+      else                       Serial.println("Driver is in STEP/DIR Mode");
+      #endif
+    } else {
+      #if defined(BURT_DEBUG)
+      Serial.print("Init failed: ");
+      Serial.println(statusToString(status));
+      #endif
     }
-}
+  }
+} 
 
 void StepperMotor::checkDriver(const unsigned timeout) {
   if (isDone(status)) return;
   if (!start_time_ms) start_time_ms = millis();
   uint32_t now = millis();
+  DriverStatus old = status;
+
   if (now - last_check_ms >= retry_delay_ms) {
     last_check_ms = now;
     TMC5160Stepper::IOIN_t ioin { driver.IOIN() };
     if (ioin.version == 0xFF || ioin.version == 0) {
       // Comm Error
       status = RETRYING_COMM;
-    } 
+    }
     else if (ioin.drv_enn) {
       // Driver Enable Error (Hardware) [EN pin is not tied to GND]
       status = RETRYING_ENN;
-    } 
+    }
     else {
       // COMM good, ENN good
       if (mode == STEP_DIR_MODE) {
@@ -132,13 +149,24 @@ void StepperMotor::checkDriver(const unsigned timeout) {
       }
     }
   }
+
   if ((now - start_time_ms) > timeout && !isDone(status)) {
     if (status == RETRYING_COMM)      status = COMM_ERR;
     else if (status == RETRYING_ENN)  status = ENN_ERR;
     else if (status == RETRYING_MODE) status = MODE_ERR;
     else                              status = TIMEOUT;
-    }
   }
+
+  // Debug: print status transitions to help debugging initialization
+  if (status != old) {
+    prev_status = old;
+    #if defined(BURT_DEBUG)
+    Serial.print(general.name);
+    Serial.print(" status -> ");
+    Serial.println(statusToString(status));
+    #endif
+  }
+}
 
 
 void StepperMotor::writeSettings() {
@@ -185,22 +213,44 @@ void StepperMotor::writeSettings() {
       driver.RAMPMODE(0);
       break;
     default: 
+      #if defined(BURT_DEBUG)
       Serial.println("Error: Motor not configured in S/D or Int Pos Mode");
+      #endif
       break;
   }
-}
+} 
 
 void StepperMotor::setup() {
+  #if defined(BURT_DEBUG)
   Serial.print("Initializing motor ");
   Serial.print(general.name);
-  Serial.println("... ");
+  Serial.println("... (non-blocking init started)");
+  Serial.println("Call update() repeatedly or waitForInit() to complete initialization.");
+  #endif
+
+  // Start non-blocking initialization; `update()` will continue it.
   prepReset();
+}
+
+/**
+ * @brief Blocking helper that waits for initialization to complete.
+ * @param timeout_ms maximum time to wait (0 = wait forever)
+ * @return true on success, false on timeout or fatal error
+ */
+bool StepperMotor::waitForInit(uint32_t timeout_ms) {
+  uint32_t start = millis();
   while (init_in_progress) {
-    tryReset(init_timeout_ms);
+    tryReset(loop_timeout_ms);
     delay(retry_delay_ms);
+    if (timeout_ms && (millis() - start) > timeout_ms) {
+      #if defined(BURT_DEBUG)
+      Serial.print(general.name);
+      Serial.println(" waitForInit: timeout");
+      #endif
+      return false;
+    }
   }
-  Serial.print("  => ");
-  Serial.println(statusToString(status));
+  return isSuccess(status);
 }
 
 void StepperMotor::calibrate() {
@@ -224,11 +274,13 @@ void StepperMotor::update() {
   */
   if (status == E_STOPPED) return;
 
+  // Drive initialization forward if it is in progress
   if (init_in_progress) {
     tryReset(loop_timeout_ms);
     return;
-  } 
+  }
 
+  // If we are in an error state, periodically attempt to kick the init again
   if (status & 0x80) {
     uint32_t now = millis();
     if (now - last_init_kick_ms >= INIT_KICK_PERIOD_MS) {
@@ -246,25 +298,29 @@ void StepperMotor::block() {
   while (isMoving()) delay(blockDelay);
 }
 
+/** @brief Move to a position given in user units (uses steps_per_unit). */
 void StepperMotor::moveTo(double position) {
   // if (!limitSwitch.isValid(position)) return;
-  int steps = position * general.steps_per_unit;
+  int32_t steps = static_cast<int32_t>(position * general.steps_per_unit);
   moveToSteps(steps);
 }
 
+/** @brief Move by an offset in user units. */
 void StepperMotor::moveBy(double offset) {
-  int steps = offset * general.steps_per_unit;
+  int32_t steps = static_cast<int32_t>(offset * general.steps_per_unit);
   moveBySteps(steps);
 }
 
-void StepperMotor::moveToSteps(int steps) {
-  driver.XTARGET(steps);
+/** @brief Set driver XTARGET directly (signed 32-bit). */
+void StepperMotor::moveToSteps(int32_t steps) {
+  driver.XTARGET(static_cast<int32_t>(steps));
 }
 
-void StepperMotor::moveBySteps(int steps) {
-  int target = driver.XACTUAL() + steps;
-  driver.XTARGET(target);
-}
+/** @brief Increment XTARGET by signed steps. */
+void StepperMotor::moveBySteps(int32_t steps) {
+  int32_t target = static_cast<int32_t>(driver.XACTUAL()) + steps;
+  driver.XTARGET(static_cast<int32_t>(target));
+} 
 
 void StepperMotor::eStop() {
   // Stop STEP driving
@@ -274,6 +330,10 @@ void StepperMotor::eStop() {
   driver.toff(0); // Disable bridges
   status = E_STOPPED;
   init_in_progress = false;
+  #if defined(BURT_DEBUG)
+  Serial.print(general.name);
+  Serial.println(" => E-STOP engaged");
+  #endif
 }
 
 void StepperMotor::clearEStop() {
@@ -285,7 +345,10 @@ void StepperMotor::clearEStop() {
   last_init_kick_ms = 0;
   prepReset();
   tryReset(init_timeout_ms);
-}
+  #if defined(BURT_DEBUG)
+  if (status == RETRYING || isDone(status)) Serial.println("E-STOP cleared, attempting re-init");
+  #endif
+} 
 
 void StepperMotor::setDir(uint8_t direction) {
   digitalWrite(pins.dir_pin, direction);
@@ -294,7 +357,7 @@ void StepperMotor::setDir(uint8_t direction) {
 void StepperMotor::setStepHz(uint32_t f_step) {
   uint32_t f_PWM = config.stepDir.double_edge ? f_step/2 : f_step;
 
-  // Clamp PWM to [20kHz, 200kHz]
+  // Clamp PWM to configured min/max
   if (f_PWM < min_freq) f_PWM = min_freq;
   if (f_PWM > max_freq) f_PWM = max_freq;  
 
@@ -303,12 +366,20 @@ void StepperMotor::setStepHz(uint32_t f_step) {
 }
 
 void StepperMotor::setMotorRps(float rps) {
+  // Only valid in STEP/DIR mode
+  if (mode != STEP_DIR_MODE) {
+    #if defined(BURT_DEBUG)
+    Serial.println("setMotorRps() ignored: motor not in STEP/DIR mode");
+    #endif
+    return;
+  }
+
   // Set DIR
   setDir((rps < 0) ? HIGH : LOW);
   rps = fabsf(rps);
   // FORMULA: f_step = n_joint*G*N_step*M_res
   uint32_t f_step = static_cast<uint32_t>(
-    rps*config.stepDir.gear_ratio*steps_per_rotation*mres + 0.5f
+    rps*config.stepDir.gear_ratio*static_cast<float>(steps_per_rotation)*static_cast<float>(mres) + 0.5f
   );
   setStepHz(f_step);
 }
