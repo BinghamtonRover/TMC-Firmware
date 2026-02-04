@@ -108,7 +108,6 @@ private:
   uint32_t                  start_time_ms     = 0;
   uint32_t                  last_check_ms     = 0;
   uint32_t                  last_init_kick_ms = 0;
-  bool                      init_in_progress  = false;
   DriverStatus              status            = RETRYING;
   DriverStatus              prev_status       = RETRYING; /**< last reported status, used for transition logging */
 
@@ -189,7 +188,7 @@ public:
   bool waitForInit(uint32_t timeout_ms = 0);
 
   /** @brief Check if initialization is currently in progress (non-blocking init). */
-  bool isInitInProgress() const { return init_in_progress; }
+  bool isInitInProgress() const { return !isDone(status); }
 
   /**
    * @brief Set motor speed in revolutions per second (STEP/DIR only).

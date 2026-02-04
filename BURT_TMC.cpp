@@ -86,17 +86,14 @@ void StepperMotor::prepReset() {
   start_time_ms = 0;
   last_check_ms = millis() - retry_delay_ms;
   status = RETRYING;
-  init_in_progress = true;
 }
 
 void StepperMotor::tryReset(const unsigned timeout) {
-  if (!init_in_progress || status == E_STOPPED) return;
+  if (isDone(status) || status == E_STOPPED) return;
 
   checkDriver(timeout);
 
   if (isDone(status)) {
-    init_in_progress = false;
-
     if (isSuccess(status)) {
       ++init_success_cntr;
       writeSettings();
@@ -257,7 +254,7 @@ void StepperMotor::setup() {
  */
 bool StepperMotor::waitForInit(uint32_t timeout_ms) {
   uint32_t start = millis();
-  while (init_in_progress) {
+  while (!isDone(status)) {
     tryReset(loop_timeout_ms);
     delay(retry_delay_ms);
     if (timeout_ms && (millis() - start) > timeout_ms) {
@@ -269,7 +266,7 @@ bool StepperMotor::waitForInit(uint32_t timeout_ms) {
     }
   }
   return isSuccess(status);
-}
+} 
 
 void StepperMotor::calibrate() {
   // if (!limitSwitch.isAttached()) return;
@@ -293,7 +290,7 @@ void StepperMotor::update() {
   if (status == E_STOPPED) return;
 
   // Drive initialization forward if it is in progress
-  if (init_in_progress) {
+  if (!isDone(status)) {
     tryReset(loop_timeout_ms);
     return;
   }
@@ -347,7 +344,6 @@ void StepperMotor::eStop() {
 
   driver.toff(0); // Disable bridges
   status = E_STOPPED;
-  init_in_progress = false;
   #if defined(BURT_DEBUG)
   Serial.print(general.name);
   Serial.println(" => E-STOP engaged");
