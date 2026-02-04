@@ -84,13 +84,18 @@ private:
     InternalRampConfig ramp;
   } config;
 
-  // Vars for check_driver
-  static constexpr uint32_t timeout_ms     = 500;
-  static constexpr uint8_t  retry_delay_ms = 25;
-  uint32_t                  start_time_ms  = 0;
-  uint32_t                  last_check_ms  = 0;
-  bool                      done_flag      = false;
-  DriverStatus              status         = RETRYING;
+  // Vars for check_driver/resets 
+  static constexpr uint32_t init_timeout_ms   = 50;
+  static constexpr uint32_t loop_timeout_ms   = 12;
+  static constexpr uint8_t  retry_delay_ms    = 10;
+  uint32_t                  start_time_ms     = 0;
+  uint32_t                  last_check_ms     = 0;
+  uint32_t                  last_init_kick_ms = 0;
+  bool                      done_flag         = false;
+  bool                      init_in_progress  = false;
+  DriverStatus              status            = RETRYING;
+
+  static constexpr uint32_t INIT_KICK_PERIOD_MS = 5000;
 
   static inline const char* statusToString(DriverStatus s) {
     switch (s) {
@@ -99,7 +104,7 @@ private:
       case RETRYING:      return "Retrying Driver Check";
       case RETRYING_COMM: return "Retrying (Comm)";
       case RETRYING_ENN:  return "Retrying (ENN)";
-      case TIMEOUT:       return "Timeout (500 ms)";
+      case TIMEOUT:       return "Timeout (50 ms)";
       case COMM_ERR:      return "Timeout + Comm Error";
       case ENN_ERR:       return "Timeout + ENN Error";
       case E_STOPPED:     return "Driver Software E-Stop is latched, reset the driver";
@@ -107,8 +112,9 @@ private:
     }
   }
 
-  void resetDriver();
-  void checkDriver();
+  void prepReset();
+  void tryReset(const unsigned timeout);
+  void checkDriver(const unsigned timeout);
   void writeSettings();
 
 public:

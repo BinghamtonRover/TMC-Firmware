@@ -55,68 +55,49 @@ void StepperMotor::preSetup() {
   }
 }
 
-void StepperMotor::resetDriver() {
+void StepperMotor::prepReset() {
   if (status == E_STOPPED) return;
-  switch (mode) {
-      case STEP_DIR_MODE: {
-        driver.begin();
-        driver.reset();
-        delay(5);
-        auto raw = driver.IOIN();
-        TMC5160Stepper::IOIN_t i { raw };
 
-        Serial.print("IOIN raw=0x"); Serial.println(raw, HEX);
-        Serial.print("VERSION=0x"); Serial.println(i.version, HEX);
-        Serial.print("SD_MODE="); Serial.println(i.sd_mode);
-        Serial.print("DRV_ENN="); Serial.println(i.drv_enn);
-        start_time_ms = last_check_ms = 0;
-        done_flag = false;
-        status = RETRYING;
-        do {
-          checkDriver();
-          delay(1);
-        } while (!done_flag);
-        if (status != STP_DIR_OK) { // in STEP_DIR_MODE branch
-          Serial.print("SD init failed: ");
-          Serial.println(statusToString(status));
-          return;
-        }
-        writeSettings();
-        Serial.print("Driver SD Mode status: ");
-        Serial.println(driver.sd_mode());
-        break; }
-      case (INT_RAMP_MODE): {
-        driver.begin();
-        driver.reset();
-        auto raw = driver.IOIN();
-        TMC5160Stepper::IOIN_t i { raw };
+  driver.begin();
+  driver.reset();
+  // delay(5); // MAYBE NEEDED, leave commented for nonblocking (preferred)
 
-        Serial.print("IOIN raw=0x"); Serial.println(raw, HEX);
-        Serial.print("VERSION=0x"); Serial.println(i.version, HEX);
-        Serial.print("SD_MODE="); Serial.println(i.sd_mode);
-        Serial.print("DRV_ENN="); Serial.println(i.drv_enn);
-        start_time_ms = last_check_ms = 0;
-        done_flag = false;
-        status = RETRYING;
-        do {
-          checkDriver();
-          delay(1);
-        } while (!done_flag);
-        if (status != POS_OK) {
-          Serial.print("Ramp init failed: ");
-          Serial.println(statusToString(status));
-          return;
-        }
-        writeSettings();
-        Serial.println("Driver is in Internal Ramp Mode");
-        break; }
-      default: 
-        Serial.println("Error: Motor not configured in S/D or Int Pos Mode");
-        break;
-      }
+  #if defined(BURT_DEBUG)
+  auto raw = driver.IOIN();
+  TMC5160Stepper::IOIN_t i { raw };
+  Serial.print("IOIN raw=0x"); Serial.println(raw, HEX);
+  Serial.print("VERSION=0x"); Serial.println(i.version, HEX);
+  Serial.print("SD_MODE="); Serial.println(i.sd_mode);
+  Serial.print("DRV_ENN="); Serial.println(i.drv_enn);
+  #endif
+
+  // prep state
+  start_time_ms = last_check_ms = 0;
+  done_flag = false;
+  status = RETRYING;
+  init_in_progress = true;
 }
 
-void StepperMotor::checkDriver() {
+void StepperMotor::tryReset(const unsigned timeout) {
+  if (!init_in_progress || status == E_STOPPED) return; // Exit early if not trying init or e-stop
+
+  checkDriver(timeout); // Execute a single check
+
+  if (done_flag) { // Process results
+      init_in_progress = false;
+
+      if (status == STP_DIR_OK || status == POS_OK) {
+        writeSettings();
+        if (mode == INT_RAMP_MODE) Serial.println("Driver is in Internal Ramp Mode");
+        else                       Serial.println("Driver is in STEP/DIR Mode");
+      } else {
+        Serial.print("Init failed: ");
+        Serial.println(statusToString(status));
+      }
+    }
+}
+
+void StepperMotor::checkDriver(const unsigned timeout) {
   if (done_flag || (status == E_STOPPED)) return;
   if (!start_time_ms) start_time_ms = millis();
   uint32_t now = millis();
@@ -150,7 +131,7 @@ void StepperMotor::checkDriver() {
       }
     }
   }
-    if ((now - start_time_ms) > timeout_ms && !done_flag) {
+    if ((now - start_time_ms) > timeout && !done_flag) {
       if (status == RETRYING_COMM)      status = COMM_ERR;
       else if (status == RETRYING_ENN)  status = ENN_ERR;
       else                              status = TIMEOUT;
@@ -212,7 +193,11 @@ void StepperMotor::setup() {
   Serial.print("Initializing motor ");
   Serial.print(general.name);
   Serial.println("... ");
-  resetDriver();
+  beginResetAttempt();
+  while (init_in_progress) {
+    pollResetAttempt(init_timeout_ms);
+    delay(1);
+  }
   Serial.print("  => ");
   Serial.println(statusToString(status));
 }
@@ -229,11 +214,27 @@ void StepperMotor::calibrate() {
 }
 
 void StepperMotor::update() {
-  // int target = driver.XTARGET();
-  // int current = driver.XACTUAL();
-  // bool isMovingTowardsLimit = limitSwitch.direction > 0
-  //   ? target > current : target < current;
-  // if (limitSwitch.isPressed() && limitSwitch.isBlocking && isMovingTowardsLimit) stop();
+  /* 
+  int target = driver.XTARGET();
+  int current = driver.XACTUAL();
+  bool isMovingTowardsLimit = limitSwitch.direction > 0
+    ? target > current : target < current;
+  if (limitSwitch.isPressed() && limitSwitch.isBlocking && isMovingTowardsLimit) stop();
+  */
+  if (status == E_STOPPED) return;
+
+  if (init_in_progress) {
+    tryReset(loop_timeout_ms);
+    return;
+  } 
+
+  if (status & 0x80) {
+    uint32_t now = millis();
+    if (now - last_init_kick_ms >= INIT_KICK_PERIOD_MS) {
+      last_init_kick_ms = now;
+      beginResetAttempt();
+    }
+  }
 }
 
 void StepperMotor::stop() {
@@ -283,7 +284,8 @@ void StepperMotor::clearEStop() {
   start_time_ms = last_check_ms = 0;
   done_flag = false;
   status = RETRYING;
-  checkDriver();
+  prepReset();
+  tryReset(init_timeout_ms);
 }
 
 void StepperMotor::setDir(uint8_t direction) {
