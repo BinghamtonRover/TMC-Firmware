@@ -54,9 +54,9 @@ struct StepDirConfig {
 };
 
 struct InternalRampConfig {
-  int         current;
-  int         speed;
-  int         acceleration;
+  int current;
+  int speed;
+  int acceleration;
 };
 
 enum DriverStatus : uint8_t {
