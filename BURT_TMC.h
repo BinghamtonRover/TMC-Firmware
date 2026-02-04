@@ -22,9 +22,6 @@ constexpr int      microsteps_per_step  = 256;              /**< Microsteps per 
 constexpr unsigned min_freq             = 1000;  // Change after testing
 constexpr unsigned max_freq             = 20000; // Change after testing
 
-constexpr float microsteps_per_radian = microsteps_per_step * steps_per_rotation / radians_per_rotation;
-constexpr float microsteps_per_degree = microsteps_per_step * steps_per_rotation / degrees_per_rotation;
-
 /**
  * @brief Pins required by the low-level driver when operating in STEP/DIR mode
  */
