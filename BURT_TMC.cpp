@@ -197,19 +197,38 @@ void StepperMotor::writeSettings() {
       driver.toff(3); // Off time setting controls duration of slow decay phase, NCLK= 24 + 32*TOFF
       break;
     case INT_RAMP_MODE:
+      // Clear any latched errors
       driver.GSTAT(7);
+
+      // Current regulation: set RMS current target (driver units; depends on RS/GLOBAL_SCALER)
       driver.rms_current(config.ramp.current);
+
+      // Chopper / PWM tuning
+      // - tbl: comparator blank time (0..3), affects chopper timing and EMI
+      // - toff: off-time (affects slow decay behavior)
+      // - pwm_freq: PWM frequency selector (affects audible noise vs resolution)
       driver.tbl(2);
       driver.toff(9);
       driver.pwm_freq(1);
+
+      // Internal ramp profile parameters
+      // - A1 / V1: initial ramp (first segment) acceleration/velocity to smoothly leave standstill
+      // - AMAX / VMAX: maximum acceleration/velocity used by the internal ramp
+      // - DMAX / D1: maximum deceleration and initial decel segment
+      // Units are in the TMC register units (driver steps/second and steps/second^2)
       driver.a1(config.ramp.acceleration);
       driver.v1(config.ramp.speed);
       driver.AMAX(config.ramp.acceleration);
       driver.VMAX(config.ramp.speed);
       driver.DMAX(config.ramp.acceleration);
       driver.d1(config.ramp.acceleration);
+
+      // vstop/vstart - thresholds used to determine 'stopped' and safe re-start velocities
+      // These should be tuned for mechanical load (higher for heavy loads)
       driver.vstop(100);
       driver.vstart(100);
+
+      // RAMPMODE=0 selects internal position mode where XTARGET drives the position ramp
       driver.RAMPMODE(0);
       break;
     default: 
