@@ -11,7 +11,6 @@ constexpr uint16_t mres                 = 16;
 constexpr int      microsteps_per_step  = 256;
 constexpr unsigned min_freq             = 1000;  // Change after testing
 constexpr unsigned max_freq             = 20000; // Change after testing
-constexpr unsigned retry_delay_ms       = 10;    // Tune after testing
 
 constexpr float microsteps_per_radian = microsteps_per_step * steps_per_rotation / radians_per_rotation;
 constexpr float microsteps_per_degree = microsteps_per_step * steps_per_rotation / degrees_per_rotation;
@@ -75,6 +74,8 @@ enum DriverStatus : uint8_t {
 
 class StepperMotor {
 private: 
+  inline static uint8_t init_success_cntr = 0;
+
   StepperGeneralConfig general;
   StepperMotorPins     pins;
   TMC5160Stepper       driver;
@@ -104,7 +105,7 @@ private:
       case RETRYING:      return "Retrying Driver Check";
       case RETRYING_COMM: return "Retrying (Comm)";
       case RETRYING_ENN:  return "Retrying (ENN)";
-      case TIMEOUT:       return "Timeout (50 ms)";
+      case TIMEOUT:       return "Timeout";
       case COMM_ERR:      return "Timeout + Comm Error";
       case ENN_ERR:       return "Timeout + ENN Error";
       case E_STOPPED:     return "Driver Software E-Stop is latched, reset the driver";
@@ -124,6 +125,8 @@ public:
   StepperMotor(const StepperGeneralConfig& g,
                const StepperMotorPins& p,
                const InternalRampConfig& cfg);
+
+  static inline uint8_t getInitSuccessCount() { return init_success_cntr; }
 
   bool   isMoving();
   int    currentSteps();

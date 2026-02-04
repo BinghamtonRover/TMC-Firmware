@@ -29,11 +29,11 @@ bool StepperMotor::isMoving() {
 }
 
 int StepperMotor::currentSteps() {
-  return driver.XACTUAL() + /*limitSwitch.offset + limitSwitch.position **/ config.ramp.steps_per_unit;
+  return driver.XACTUAL(); /*+ limitSwitch.offset + limitSwitch.position * config.ramp.steps_per_unit; */
 }
 
 int StepperMotor::targetSteps() {
-  return driver.XTARGET() + /*limitSwitch.offset + limitSwitch.position **/ config.ramp.steps_per_unit;
+  return driver.XTARGET(); /*+ limitSwitch.offset + limitSwitch.position * config.ramp.steps_per_unit; */
 }
 
 double StepperMotor::currentPosition() {
@@ -87,6 +87,7 @@ void StepperMotor::tryReset(const unsigned timeout) {
       init_in_progress = false;
 
       if (status == STP_DIR_OK || status == POS_OK) {
+        ++init_success_cntr;
         writeSettings();
         if (mode == INT_RAMP_MODE) Serial.println("Driver is in Internal Ramp Mode");
         else                       Serial.println("Driver is in STEP/DIR Mode");
@@ -193,9 +194,9 @@ void StepperMotor::setup() {
   Serial.print("Initializing motor ");
   Serial.print(general.name);
   Serial.println("... ");
-  beginResetAttempt();
+  prepReset();
   while (init_in_progress) {
-    pollResetAttempt(init_timeout_ms);
+    tryReset(init_timeout_ms);
     delay(1);
   }
   Serial.print("  => ");
@@ -232,7 +233,7 @@ void StepperMotor::update() {
     uint32_t now = millis();
     if (now - last_init_kick_ms >= INIT_KICK_PERIOD_MS) {
       last_init_kick_ms = now;
-      beginResetAttempt();
+      prepReset();
     }
   }
 }
@@ -281,9 +282,7 @@ void StepperMotor::clearEStop() {
   digitalWrite(pins.step_pin, LOW);
 
   driver.toff(3); // Reenable bridges
-  start_time_ms = last_check_ms = 0;
-  done_flag = false;
-  status = RETRYING;
+  last_init_kick_ms = 0;
   prepReset();
   tryReset(init_timeout_ms);
 }
