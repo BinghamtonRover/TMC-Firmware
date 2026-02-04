@@ -150,7 +150,7 @@ public:
   static inline bool isDone(DriverStatus s)    { return isSuccess(s) || isError(s) || (s == E_STOPPED); }
 
   /** @brief Is the driver currently driving toward a target? */
-  bool   isMoving();
+  bool isMoving();
   /** @brief Current step counter (driver XACTUAL). Signed 32-bit to allow large/negative counts. */
   int32_t currentSteps();
   /** @brief Current target step counter (driver XTARGET). Signed 32-bit to allow large/negative counts. */
