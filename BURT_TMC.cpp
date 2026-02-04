@@ -74,7 +74,7 @@ void StepperMotor::prepReset() {
   // delay(5); // MAYBE NEEDED, leave commented for nonblocking (preferred)
 
   #if defined(BURT_DEBUG)
-  auto raw = driver.IOIN();
+  uint32_t raw = driver.IOIN();
   TMC5160Stepper::IOIN_t i { raw };
   Serial.print("IOIN raw=0x"); Serial.println(raw, HEX);
   Serial.print("VERSION=0x"); Serial.println(i.version, HEX);
@@ -129,8 +129,7 @@ void StepperMotor::checkDriver(const unsigned timeout) {
     else if (ioin.drv_enn) {
       // Driver Enable Error (Hardware) [EN pin is not tied to GND]
       status = RETRYING_ENN;
-    }
-    else {
+    } else {
       // COMM good, ENN good
       if (mode == STEP_DIR_MODE) {
         if (ioin.sd_mode) {
