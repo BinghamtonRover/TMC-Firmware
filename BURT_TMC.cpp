@@ -249,6 +249,25 @@ void StepperMotor::setup() {
 
 /**
  * @brief Blocking helper that waits for initialization to complete.
+ *
+ * Implementation notes:
+ *  - This function loops, calling `tryReset(loop_timeout_ms)` and then
+ *    sleeping `retry_delay_ms` until `isDone(status)` returns true.
+ *  - `checkDriver()` prints status transitions (and driver IOIN details) when
+ *    `BURT_DEBUG` is defined, which makes it useful for diagnosing initialization
+ *    failures. A timeout will also print a short message when `BURT_DEBUG` is
+ *    enabled.
+ *
+ * Example usage:
+ *  StepperMotor motor(...);
+ *  motor.setup();
+ *  if (!motor.waitForInit(200)) {
+ *    Serial.println("Motor init failed: check wiring, EN pin, or SPI bus");
+ *  }
+ *
+ * Caution: this is a blocking call — prefer `setup()` + periodic `update()` in
+ * time-critical applications.
+ *
  * @param timeout_ms maximum time to wait (0 = wait forever)
  * @return true on success, false on timeout or fatal error
  */

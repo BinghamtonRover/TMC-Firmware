@@ -179,11 +179,33 @@ public:
   DriverStatus getStatus() const { return status; }
 
   /**
-   * @brief Non-blocking: starts init and returns immediately. Call `update()` repeatedly
-   * to continue initialization. For convenience, call `waitForInit(timeout_ms)` to block
-   * until init is finished or timed out.
-   * @param timeout_ms maximum time to wait (0 = wait forever)
-   * @return true if initialization succeeded, false on timeout or error
+   * @brief Convenience blocking helper to wait for driver initialization.
+   *
+   * This routine repeatedly advances the non-blocking init state machine
+   * (calls `tryReset(loop_timeout_ms)` and sleeps `retry_delay_ms`) until the
+   * driver's status is "done" (success, error, or latched E-STOP) or until
+   * `timeout_ms` elapses.
+   *
+   * Behavior:
+   *  - Calls `tryReset(loop_timeout_ms)` in a loop and delays `retry_delay_ms` between iterations.
+   *  - Returns true when the status reports success (STP_DIR_OK or POS_OK).
+   *  - Returns false on timeout, or if an error/E-STOP is reached.
+   *
+   * Debugging:
+   *  - When compiled with `BURT_DEBUG`, status transitions are printed from
+   *    `checkDriver()` (includes `general.name` and a human-readable status via `statusToString`).
+   *  - When a blocking timeout occurs `waitForInit()` prints a timeout message
+   *    (also gated by `BURT_DEBUG`).
+   *
+   * Usage recommendations:
+   *  - Prefer using the non-blocking flow: call `setup()` once and poll `update()` regularly
+   *    in your main loop so the MCU remains responsive.
+   *  - Use `waitForInit()` in `setup()` when a short blocking wait is acceptable
+   *    (choose `timeout_ms` conservatively, e.g. 50–500 ms depending on bus reliability).
+   *  - Do not call this from interrupt context — it performs delays/sleeps.
+   *
+   * @param timeout_ms maximum time to wait in milliseconds (0 = wait forever)
+   * @return true if initialization succeeded (isSuccess(status)), false on timeout or error
    */
   bool waitForInit(uint32_t timeout_ms = 0);
 
