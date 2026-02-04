@@ -74,7 +74,6 @@ void StepperMotor::prepReset() {
   // prep state
   start_time_ms = 0;
   last_check_ms = millis() - retry_delay_ms;
-  done_flag = false;
   status = RETRYING;
   init_in_progress = true;
 }
@@ -119,7 +118,6 @@ void StepperMotor::checkDriver(const unsigned timeout) {
       if (mode == STEP_DIR_MODE) {
         if (ioin.sd_mode) {
           status = STP_DIR_OK;
-          done_flag = true;
         } else {
           // wrong sd_mode for STEP/DIR expected
           status = RETRYING_MODE;
@@ -127,7 +125,6 @@ void StepperMotor::checkDriver(const unsigned timeout) {
       } else { // INT_RAMP_MODE
         if (!ioin.sd_mode) {
           status = POS_OK;
-          done_flag = true;
         } else {
           // wrong sd_mode for INT_RAMP expected
           status = RETRYING_MODE;
@@ -135,12 +132,11 @@ void StepperMotor::checkDriver(const unsigned timeout) {
       }
     }
   }
-    if ((now - start_time_ms) > timeout && !done_flag) {
-      if (status == RETRYING_COMM)      status = COMM_ERR;
-      else if (status == RETRYING_ENN)  status = ENN_ERR;
-      else if (status == RETRYING_MODE) status = MODE_ERR;
-      else                              status = TIMEOUT;
-      done_flag = true;
+  if ((now - start_time_ms) > timeout && !isDone(status)) {
+    if (status == RETRYING_COMM)      status = COMM_ERR;
+    else if (status == RETRYING_ENN)  status = ENN_ERR;
+    else if (status == RETRYING_MODE) status = MODE_ERR;
+    else                              status = TIMEOUT;
     }
   }
 
@@ -276,8 +272,8 @@ void StepperMotor::eStop() {
   digitalWrite(pins.step_pin, LOW);
 
   driver.toff(0); // Disable bridges
-  done_flag = true;
   status = E_STOPPED;
+  init_in_progress = false;
 }
 
 void StepperMotor::clearEStop() {
