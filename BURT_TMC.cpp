@@ -198,7 +198,7 @@ void StepperMotor::writeSettings() {
       break;
     case INT_RAMP_MODE:
       // Clear any latched errors
-      driver.GSTAT(7);
+      driver.GSTAT(0b111);
 
       // Current regulation: set RMS current target (driver units; depends on RS/GLOBAL_SCALER)
       driver.rms_current(config.ramp.current);
