@@ -80,16 +80,16 @@ void StepperMotor::prepReset() {
 }
 
 void StepperMotor::tryReset(const unsigned timeout) {
-  if (!init_in_progress || status == E_STOPPED) return; // Exit early if not trying init or e-stop
+  if (!init_in_progress || status == E_STOPPED) return;
 
-  checkDriver(timeout); // Execute a single check
+  checkDriver(timeout);
 
-  if (done_flag) { // Process results
-      init_in_progress = false;
+  if (isDone(status)) {
+    init_in_progress = false;
 
-      if (status == STP_DIR_OK || status == POS_OK) {
-        ++init_success_cntr;
-        writeSettings();
+    if (isSuccess(status)) {
+      ++init_success_cntr;
+      writeSettings();
         if (mode == INT_RAMP_MODE) Serial.println("Driver is in Internal Ramp Mode");
         else                       Serial.println("Driver is in STEP/DIR Mode");
       } else {
@@ -100,7 +100,7 @@ void StepperMotor::tryReset(const unsigned timeout) {
 }
 
 void StepperMotor::checkDriver(const unsigned timeout) {
-  if (done_flag || (status == E_STOPPED)) return;
+  if (isDone(status)) return;
   if (!start_time_ms) start_time_ms = millis();
   uint32_t now = millis();
   if (now - last_check_ms >= retry_delay_ms) {
@@ -143,7 +143,7 @@ void StepperMotor::checkDriver(const unsigned timeout) {
       done_flag = true;
     }
   }
-}
+
 
 void StepperMotor::writeSettings() {
   switch (mode) {

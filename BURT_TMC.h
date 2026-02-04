@@ -98,7 +98,6 @@ private:
   uint32_t                  start_time_ms     = 0;
   uint32_t                  last_check_ms     = 0;
   uint32_t                  last_init_kick_ms = 0;
-  bool                      done_flag         = false;
   bool                      init_in_progress  = false;
   DriverStatus              status            = RETRYING;
 
@@ -134,7 +133,10 @@ public:
                const StepperMotorPins& p,
                const InternalRampConfig& cfg);
 
-  static inline uint8_t getInitSuccessCount() { return init_success_cntr; }
+  static inline uint8_t getInitSuccessCount()  { return init_success_cntr; }
+  static inline bool isSuccess(DriverStatus s) { return (s & 0x10) != 0; }
+  static inline bool isError(DriverStatus s)   { return (s & 0x80) != 0; }
+  static inline bool isDone(DriverStatus s)    { return isSuccess(s) || isError(s) || (s == E_STOPPED); }
 
   bool   isMoving();
   int    currentSteps();
