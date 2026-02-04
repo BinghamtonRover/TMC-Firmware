@@ -75,7 +75,6 @@ enum DriverStatus : uint8_t {
   MODE_ERR      = 0x80 | 0x04, // 1000 0100 - Incorrect sd_mode (hardware trace error)
   
   E_STOPPED     = 0x60 | 0x00, // 0110 0000 - Not settable in check_driver, latches in e_stop
-
 };
 
 class StepperMotor {
