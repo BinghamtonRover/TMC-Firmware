@@ -72,7 +72,8 @@ void StepperMotor::prepReset() {
   #endif
 
   // prep state
-  start_time_ms = last_check_ms = 0;
+  start_time_ms = 0;
+  last_check_ms = millis() - retry_delay_ms;
   done_flag = false;
   status = RETRYING;
   init_in_progress = true;
@@ -113,28 +114,31 @@ void StepperMotor::checkDriver(const unsigned timeout) {
       // Driver Enable Error (Hardware) [EN pin is not tied to GND]
       status = RETRYING_ENN;
     } 
-    else { // COMM good
+    else {
+      // COMM good, ENN good
       if (mode == STEP_DIR_MODE) {
-        if (ioin.sd_mode) { 
-          status = STP_DIR_OK; 
-          done_flag = true; 
+        if (ioin.sd_mode) {
+          status = STP_DIR_OK;
+          done_flag = true;
+        } else {
+          // wrong sd_mode for STEP/DIR expected
+          status = RETRYING_MODE;
         }
-      else { 
-        status = RETRYING; // wrong mode
-      }   
-    } else { // INT_RAMP_MODE
-      if (!ioin.sd_mode) { 
-        status = POS_OK; 
-        done_flag = true; 
-      }
-      else { 
-        status = RETRYING; 
+      } else { // INT_RAMP_MODE
+        if (!ioin.sd_mode) {
+          status = POS_OK;
+          done_flag = true;
+        } else {
+          // wrong sd_mode for INT_RAMP expected
+          status = RETRYING_MODE;
+        }
       }
     }
   }
     if ((now - start_time_ms) > timeout && !done_flag) {
       if (status == RETRYING_COMM)      status = COMM_ERR;
       else if (status == RETRYING_ENN)  status = ENN_ERR;
+      else if (status == RETRYING_MODE) status = MODE_ERR;
       else                              status = TIMEOUT;
       done_flag = true;
     }
@@ -197,7 +201,7 @@ void StepperMotor::setup() {
   prepReset();
   while (init_in_progress) {
     tryReset(init_timeout_ms);
-    delay(1);
+    delay(retry_delay_ms);
   }
   Serial.print("  => ");
   Serial.println(statusToString(status));

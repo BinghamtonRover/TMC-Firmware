@@ -63,13 +63,19 @@ enum DriverStatus : uint8_t {
   // Bit layout: [7] = error, [6:5] = E Stop, [4] = success, [3:0] = subtype
   STP_DIR_OK    = 0x10 | 0x01, // 0001 0001 - Driver is in STEP/DIR Mode and ready to go 
   POS_OK        = 0x10 | 0x02, // 0001 0010 - Internal Position mode good to go
+
   RETRYING      = 0x00 | 0x01, // 0000 0001 - Nothing on last attempt, still trying 
   RETRYING_COMM = 0x00 | 0x02, // 0000 0010 - Comm error on last attempt, still trying 
   RETRYING_ENN  = 0x00 | 0x03, // 0000 0011 - !(drv_enn) on last attempt, still trying 
+  RETRYING_MODE = 0x00 | 0x04, // 0000 0100 - Incorrect sd_mode on last attempt, rechecking
+
   TIMEOUT       = 0x80 | 0x01, // 1000 0001 - Timeout with no response 
   COMM_ERR      = 0x80 | 0x02, // 1000 0010 - Timeout with Driver Communication Error 
   ENN_ERR       = 0x80 | 0x03, // 1000 0011 - Timeout with Motor is not hardware enabled 
+  MODE_ERR      = 0x80 | 0x04, // 1000 0100 - Incorrect sd_mode (hardware trace error)
+  
   E_STOPPED     = 0x60 | 0x00, // 0110 0000 - Not settable in check_driver, latches in e_stop
+
 };
 
 class StepperMotor {
@@ -87,7 +93,7 @@ private:
 
   // Vars for check_driver/resets 
   static constexpr uint32_t init_timeout_ms   = 50;
-  static constexpr uint32_t loop_timeout_ms   = 12;
+  static constexpr uint32_t loop_timeout_ms   = 25;
   static constexpr uint8_t  retry_delay_ms    = 10;
   uint32_t                  start_time_ms     = 0;
   uint32_t                  last_check_ms     = 0;
@@ -96,7 +102,7 @@ private:
   bool                      init_in_progress  = false;
   DriverStatus              status            = RETRYING;
 
-  static constexpr uint32_t INIT_KICK_PERIOD_MS = 5000;
+  static constexpr uint32_t INIT_KICK_PERIOD_MS = 1000;
 
   static inline const char* statusToString(DriverStatus s) {
     switch (s) {
@@ -105,9 +111,11 @@ private:
       case RETRYING:      return "Retrying Driver Check";
       case RETRYING_COMM: return "Retrying (Comm)";
       case RETRYING_ENN:  return "Retrying (ENN)";
+      case RETRYING_MODE: return "Retrying (Wrong SD_MODE)";
       case TIMEOUT:       return "Timeout";
       case COMM_ERR:      return "Timeout + Comm Error";
       case ENN_ERR:       return "Timeout + ENN Error";
+      case MODE_ERR:      return "Timeout + Wrong SD_MODE; check trace on TMC";
       case E_STOPPED:     return "Driver Software E-Stop is latched, reset the driver";
       default:            return "Unknown";
     }
