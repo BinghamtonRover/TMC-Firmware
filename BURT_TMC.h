@@ -15,10 +15,10 @@ constexpr float    pi                   = 3.141592653589793f;
 constexpr uint16_t steps_per_rotation   = 200;
 constexpr uint16_t degrees_per_rotation = 360;
 constexpr float    radians_per_rotation = 2.0f * pi;
-constexpr float    microsteps_per_rad   = microsteps_per_step * steps_per_rotation / radians_per_rotation;
-constexpr float    microsteps_per_deg   = microsteps_per_step * steps_per_rotation / degrees_per_rotation;
 constexpr uint16_t mres                 = 16;               /**< Microstep resolution factor (MRES) */
 constexpr int      microsteps_per_step  = 256;              /**< Microsteps per full step */
+constexpr float    microsteps_per_rad   = microsteps_per_step * steps_per_rotation / radians_per_rotation;
+constexpr float    microsteps_per_deg   = microsteps_per_step * steps_per_rotation / degrees_per_rotation;
 constexpr unsigned min_freq             = 1000;  // Change after testing
 constexpr unsigned max_freq             = 20000; // Change after testing
 
