@@ -152,7 +152,9 @@ public:
   static inline uint8_t getInitSuccessCount()  { return init_success_cntr; }
   static inline bool isSuccess(DriverStatus s) { return (s & 0x10) != 0; }
   static inline bool isError(DriverStatus s)   { return (s & 0x80) != 0; }
-  static inline bool isDone(DriverStatus s)    { return isSuccess(s) || isError(s) || (s == E_STOPPED); }
+  static inline bool isDone(DriverStatus s)    { return isSuccess(s) || 
+                                                        isError(s) || 
+                                                        (s == TMC::E_STOPPED); }
 
   /** @brief Is the driver currently driving toward a target? */
   bool isMoving();
