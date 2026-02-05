@@ -16,7 +16,7 @@ StepperMotor::StepperMotor(const StepperGeneralConfig& g,
     : general(g),
       pins(p),
       driver(TMC5160Stepper(SPI, p.chip_select, 0.075)),
-      mode(STEP_DIR_MODE)
+      mode(TMC::STEP_DIR_MODE)
 {
   config.stepDir = cfg;
 }
@@ -27,7 +27,7 @@ StepperMotor::StepperMotor(const StepperGeneralConfig& g,
     : general(g),
       pins(p),
       driver(TMC5160Stepper(SPI, p.chip_select, 0.075)),
-      mode(INT_RAMP_MODE)
+      mode(TMC::INT_RAMP_MODE)
 {
   config.ramp = cfg;
 }
@@ -98,8 +98,8 @@ void StepperMotor::tryReset(const unsigned timeout) {
       ++init_success_cntr;
       writeSettings();
       #if defined(BURT_DEBUG)
-      if (mode == INT_RAMP_MODE) Serial.println("Driver is in Internal Ramp Mode");
-      else                       Serial.println("Driver is in STEP/DIR Mode");
+      if (mode == TMC::INT_RAMP_MODE) Serial.println("Driver is in Internal Ramp Mode");
+      else                            Serial.println("Driver is in STEP/DIR Mode");
       #endif
     } else {
       #if defined(BURT_DEBUG)
@@ -121,36 +121,36 @@ void StepperMotor::checkDriver(const unsigned timeout) {
     TMC5160Stepper::IOIN_t ioin { driver.IOIN() };
     if (ioin.version == 0xFF || ioin.version == 0) {
       // Comm Error
-      status = RETRYING_COMM;
+      status = TMC::RETRYING_COMM;
     }
     else if (ioin.drv_enn) {
       // Driver Enable Error (Hardware) [EN pin is not tied to GND]
-      status = RETRYING_ENN;
+      status = TMC::RETRYING_ENN;
     } else {
       // COMM good, ENN good
-      if (mode == STEP_DIR_MODE) {
+      if (mode == TMC::STEP_DIR_MODE) {
         if (ioin.sd_mode) {
-          status = STP_DIR_OK;
+          status = TMC::STP_DIR_OK;
         } else {
           // wrong sd_mode for STEP/DIR expected
-          status = RETRYING_MODE;
+          status = TMC::RETRYING_MODE;
         }
       } else { // INT_RAMP_MODE
         if (!ioin.sd_mode) {
-          status = POS_OK;
+          status = TMC::POS_OK;
         } else {
           // wrong sd_mode for INT_RAMP expected
-          status = RETRYING_MODE;
+          status = TMC::RETRYING_MODE;
         }
       }
     }
   }
 
   if ((now - start_time_ms) > timeout && !isDone(status)) {
-    if (status == RETRYING_COMM)      status = COMM_ERR;
-    else if (status == RETRYING_ENN)  status = ENN_ERR;
-    else if (status == RETRYING_MODE) status = MODE_ERR;
-    else                              status = TIMEOUT;
+    if      (status == TMC::RETRYING_COMM) status = TMC::COMM_ERR;
+    else if (status == TMC::RETRYING_ENN)  status = TMC::ENN_ERR;
+    else if (status == TMC::RETRYING_MODE) status = TMC::MODE_ERR;
+    else                                   status = TMC::TIMEOUT;
   }
 
   // Debug: print status transitions to help debugging initialization
@@ -167,7 +167,7 @@ void StepperMotor::checkDriver(const unsigned timeout) {
 
 void StepperMotor::writeSettings() {
   switch (mode) {
-    case STEP_DIR_MODE:
+    case TMC::STEP_DIR_MODE:
       // General Setup
       driver.GSTAT(0b111); // Clear latched errors
       driver.en_pwm_mode(config.stepDir.stealth_chop_en); // Enable stealthChop if configured
@@ -192,7 +192,7 @@ void StepperMotor::writeSettings() {
       driver.dedge(config.stepDir.double_edge); // 1 uses falling edge as second step pulse, allows lower step freq from MCU but requires exactly 50% duty cycle
       driver.toff(3); // Off time setting controls duration of slow decay phase, NCLK= 24 + 32*TOFF
       break;
-    case INT_RAMP_MODE:
+    case TMC::INT_RAMP_MODE:
       // Clear any latched errors
       driver.GSTAT(0b111);
 
@@ -306,7 +306,7 @@ void StepperMotor::update() {
     ? target > current : target < current;
   if (limitSwitch.isPressed() && limitSwitch.isBlocking && isMovingTowardsLimit) stop();
   */
-  if (status == E_STOPPED) return;
+  if (status == TMC::E_STOPPED) return;
 
   // Drive initialization forward if it is in progress
   if (!isDone(status)) {
@@ -362,7 +362,7 @@ void StepperMotor::eStop() {
   digitalWrite(pins.step_pin, LOW);
 
   driver.toff(0); // Disable bridges
-  status = E_STOPPED;
+  status = TMC::E_STOPPED;
   #if defined(BURT_DEBUG)
   Serial.print(general.name);
   Serial.println(" => E-STOP engaged");
@@ -379,7 +379,7 @@ void StepperMotor::clearEStop() {
   prepReset();
   tryReset(init_timeout_ms);
   #if defined(BURT_DEBUG)
-  if (status == RETRYING || isDone(status)) Serial.println("E-STOP cleared, attempting re-init");
+  if (status == TMC::RETRYING || isDone(status)) Serial.println("E-STOP cleared, attempting re-init");
   #endif
 } 
 
@@ -400,7 +400,7 @@ void StepperMotor::setStepHz(uint32_t f_step) {
 
 void StepperMotor::setMotorRps(float rps) {
   // Only valid in STEP/DIR mode
-  if (mode != STEP_DIR_MODE) {
+  if (mode != TMC::STEP_DIR_MODE) {
     #if defined(BURT_DEBUG)
     Serial.println("setMotorRps() ignored: motor not in STEP/DIR mode");
     #endif
