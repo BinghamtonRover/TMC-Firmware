@@ -58,7 +58,7 @@ double StepperMotor::targetPosition() {
 void StepperMotor::preSetup() {
   pinMode(pins.chip_select, OUTPUT);
   digitalWrite(pins.chip_select, HIGH);
-  if (mode == STEP_DIR_MODE) {
+  if (mode == TMC::STEP_DIR_MODE) {
     pinMode(pins.step_pin, OUTPUT);
     pinMode(pins.dir_pin, OUTPUT);
     digitalWrite(pins.step_pin, LOW);
@@ -67,7 +67,7 @@ void StepperMotor::preSetup() {
 }
 
 void StepperMotor::prepReset() {
-  if (status == E_STOPPED) return;
+  if (status == TMC::E_STOPPED) return;
 
   driver.begin();
   driver.reset();
