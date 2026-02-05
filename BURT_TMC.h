@@ -110,11 +110,11 @@ private:
   static constexpr uint8_t  retry_delay_ms    = 10;
   uint32_t                  start_time_ms     = 0;
   uint32_t                  last_check_ms     = 0;
-  uint32_t                  last_init_kick_ms = 0;
   DriverStatus              status            = TMC::RETRYING;
   DriverStatus              prev_status       = TMC::RETRYING; /**< last reported status, used for transition logging */
 
-  static constexpr uint32_t INIT_KICK_PERIOD_MS = 1000;
+  uint32_t                  last_reinit_attempt_ms   = 0;
+  static constexpr uint32_t REINIT_ATTEMPT_PERIOD_MS = 1000;
 
   static inline const char* statusToString(DriverStatus s) {
     switch (s) {

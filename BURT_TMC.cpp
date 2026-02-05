@@ -317,8 +317,8 @@ void StepperMotor::update() {
   // If we are in an error state, periodically attempt to kick the init again
   if (isError(status)) {
     uint32_t now = millis();
-    if (now - last_init_kick_ms >= INIT_KICK_PERIOD_MS) {
-      last_init_kick_ms = now;
+    if (now - last_reinit_attempt_ms >= REINIT_ATTEMPT_PERIOD_MS) {
+      last_reinit_attempt_ms = now;
       prepReset();
     }
   }
@@ -375,7 +375,7 @@ void StepperMotor::clearEStop() {
   digitalWrite(pins.step_pin, LOW);
 
   driver.toff(3); // Reenable bridges
-  last_init_kick_ms = 0;
+  last_reinit_attempt_ms = 0;
   prepReset();
   tryReset(init_timeout_ms);
   #if defined(BURT_DEBUG)
