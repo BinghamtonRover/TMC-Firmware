@@ -315,7 +315,7 @@ void StepperMotor::update() {
   }
 
   // If we are in an error state, periodically attempt to kick the init again
-  if (status & 0x80) {
+  if (isError(status)) {
     uint32_t now = millis();
     if (now - last_init_kick_ms >= INIT_KICK_PERIOD_MS) {
       last_init_kick_ms = now;
