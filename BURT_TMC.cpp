@@ -288,14 +288,8 @@ bool StepperMotor::waitForInit(uint32_t timeout_ms) {
 } 
 
 void StepperMotor::calibrate() {
-  // if (!limitSwitch.isAttached()) return;
-  // while (!limitSwitch.isPressed()) {
-  //   moveBySteps(10 * limitSwitch.direction);
-  // }
-  // stop();
-  // int limitSteps = limitSwitch.position * general.stepsPerUnit;
-  // // limitSwitch.offset = limitSteps - driver.XACTUAL() * limitSwitch.direction;
-  // limitSwitch.offset = -driver.XACTUAL();
+  // Possible future implementation: realign internal TMC pos with Encoder reading
+  // Leaving to not break
 }
 
 void StepperMotor::update() {
