@@ -31,11 +31,6 @@ struct StepperMotorPins {
   const uint8_t dir_pin;     /**< DIR  pin (for STEP/DIR mode) */
 };
 
-enum DriverMode {
-  STEP_DIR_MODE,
-  INT_RAMP_MODE,
-};
-
 struct StepperGeneralConfig {
   const char* name;
   float       steps_per_unit;
@@ -70,6 +65,11 @@ struct InternalRampConfig {
 };
 
 namespace TMC {
+  enum DriverMode : uint8_t {
+      STEP_DIR_MODE,
+      INT_RAMP_MODE,
+  };
+
   enum DriverStatus : uint8_t {
     // Bit layout: [7] = error, [6:5] = E Stop, [4] = success, [3:0] = subtype
     STP_DIR_OK    = 0x10 | 0x01, // 0001 0001 - Driver is in STEP/DIR Mode and ready to go 
@@ -92,6 +92,8 @@ namespace TMC {
 class StepperMotor {
 private: 
   inline static uint8_t init_success_cntr = 0;
+  using DriverStatus = TMC::DriverStatus;
+  using DriverMode   = TMC::DriverMode;
 
   StepperGeneralConfig general;
   StepperMotorPins     pins;
@@ -109,24 +111,24 @@ private:
   uint32_t                  start_time_ms     = 0;
   uint32_t                  last_check_ms     = 0;
   uint32_t                  last_init_kick_ms = 0;
-  DriverStatus              status            = RETRYING;
-  DriverStatus              prev_status       = RETRYING; /**< last reported status, used for transition logging */
+  DriverStatus              status            = TMC::RETRYING;
+  DriverStatus              prev_status       = TMC::RETRYING; /**< last reported status, used for transition logging */
 
   static constexpr uint32_t INIT_KICK_PERIOD_MS = 1000;
 
   static inline const char* statusToString(DriverStatus s) {
     switch (s) {
-      case STP_DIR_OK:    return "STEP/DIR Mode: Success";
-      case POS_OK:        return "Internal POS/VEL Mode: Success";
-      case RETRYING:      return "Retrying Driver Check";
-      case RETRYING_COMM: return "Retrying (Comm)";
-      case RETRYING_ENN:  return "Retrying (ENN)";
-      case RETRYING_MODE: return "Retrying (Wrong SD_MODE)";
-      case TIMEOUT:       return "Timeout";
-      case COMM_ERR:      return "Timeout + Comm Error";
-      case ENN_ERR:       return "Timeout + ENN Error";
-      case MODE_ERR:      return "Timeout + Wrong SD_MODE; check trace on TMC";
-      case E_STOPPED:     return "Driver Software E-Stop is latched, reset the driver";
+      case TMC::STP_DIR_OK:    return "STEP/DIR Mode: Success";
+      case TMC::POS_OK:        return "Internal POS/VEL Mode: Success";
+      case TMC::RETRYING:      return "Retrying Driver Check";
+      case TMC::RETRYING_COMM: return "Retrying (Comm)";
+      case TMC::RETRYING_ENN:  return "Retrying (ENN)";
+      case TMC::RETRYING_MODE: return "Retrying (Wrong SD_MODE)";
+      case TMC::TIMEOUT:       return "Timeout";
+      case TMC::COMM_ERR:      return "Timeout + Comm Error";
+      case TMC::ENN_ERR:       return "Timeout + ENN Error";
+      case TMC::MODE_ERR:      return "Timeout + Wrong SD_MODE; check trace on TMC";
+      case TMC::E_STOPPED:     return "Driver Software E-Stop is latched, reset the driver";
       default:            return "Unknown";
     }
   }

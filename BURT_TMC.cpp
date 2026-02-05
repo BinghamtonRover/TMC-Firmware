@@ -85,11 +85,11 @@ void StepperMotor::prepReset() {
   // prep state
   start_time_ms = 0;
   last_check_ms = millis() - retry_delay_ms;
-  status = RETRYING;
+  status = TMC::RETRYING;
 }
 
 void StepperMotor::tryReset(const unsigned timeout) {
-  if (isDone(status) || status == E_STOPPED) return;
+  if (isDone(status) || status == TMC::E_STOPPED) return;
 
   checkDriver(timeout);
 
