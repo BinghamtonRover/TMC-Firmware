@@ -138,6 +138,9 @@ private:
   void checkDriver(const unsigned timeout);
   void writeSettings();
 
+  void setDir(uint8_t direction);
+  void setStepHz(uint32_t f_step);
+
 public:
   StepperMotor(const StepperGeneralConfig& g,
                const StepperMotorPins& p,
@@ -220,6 +223,4 @@ public:
    * @note Negative values drive reverse direction; function is a no-op in other modes.
    */
   void setMotorRps(float rps);
-  void setDir(uint8_t direction);
-  void setStepHz(uint32_t f_step);
 };
