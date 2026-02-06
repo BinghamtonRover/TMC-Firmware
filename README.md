@@ -13,48 +13,86 @@ The arm uses TMC 5160 stepper motors, which have a lot of features but are compl
 
 ## Usage
 
-Read the full documentation for details, but here are a few basics:
+This library supports two modes of operation:
 
-### Initialize the motor
+- **STEP/DIR mode** — the MCU generates STEP pulses and DIR signals (good for custom control loops).
+- **Internal Ramp (position) mode** — use the TMC5160's internal ramping to move to targets.
 
-Declare your motor as a variable and initialize in `setup`: 
+### Migration notes (important)
+
+- Constructor API changed: create a `StepperGeneralConfig` (name + steps_per_unit), a `StepperMotorPins` struct, and pass either a `StepDirConfig` or `InternalRampConfig` depending on mode.
+- Step counters and move-by/move-to step functions now use **signed 32-bit** (`int32_t`).
+
+### Example: STEP/DIR mode (recommended for custom control)
 
 ```cpp
-StepperMotor myMotor = StepperMotor(chipSelectPin, enablePin, rmsCurrent, minBound, maxBound, gearboxRatio);
+#include "BURT_TMC.h"
+
+StepperGeneralConfig g { "arm_joint", 100.0f /* steps per unit */ };
+StepperMotorPins pins { .chip_select = 10, .step_pin = 3, .dir_pin = 4 };
+StepDirConfig cfg {
+  .gear_ratio = 1.0f,
+  .double_edge = false,
+  .run_current_scale = 16,
+  .hold_current_scale = 8,
+  .ihold_delay_scale = 1,
+  .invert_dir = false,
+  .stealth_chop_en = true,
+  .spread_cycle_start_thrs = 10000
+};
+
+StepperMotor motor(g, pins, cfg);
 
 void setup() {
-	myMotor.setup();
-	myMotor.calibrate();
+  motor.preSetup();   // config GPIOs
+  motor.setup();      // start non-blocking init
+  motor.waitForInit(1000); // optional blocking wait (timeout in ms)
+}
+
+void loop() {
+  motor.update(); // continue init & handle retries; call from loop
 }
 ```
 
-### Maintaining the motor
-
-The motor takes a while to move to its destination, and may stall along the way. Add some boilerplate to your `loop` to handle these cases:
+### Example: Internal ramp (TMC driven position)
 
 ```cpp
-void loop() {
-	myMotor.fixPotentialStall();  // check and act on stalls
-	if (!myMotor.isFinished()) return;  // still en-route
-	// Now you can safely move the motor
-}
+InternalRampConfig ramp { .current = 100, .speed = 1000, .acceleration = 500 };
+StepperMotor motor(g, pins, ramp);
+// use the same setup()/update() pattern shown above
 ```
 
 ### Moving the motor
 
-You have three options for moving the motor:
+- `moveTo(position_in_units)` and `moveBy(offset_in_units)` accept user units (they use `steps_per_unit` from `StepperGeneralConfig`).
+- `moveToSteps(int32_t steps)` and `moveBySteps(int32_t steps)` operate directly on driver step counters.
 
-1. Move by a given number of steps (debug):
+#### STEP/DIR mode notes 
+- Use `setMotorRps(float rps)` to set rotational speed (revolutions per second). Negative values select reverse rotation (the function will set `DIR` accordingly).
+- `setMotorRps()` is only valid in **STEP/DIR mode** — calling it in Internal Ramp mode is a no-op and will print a debug message when `BURT_DEBUG` is defined.
+- You can control STEP frequency directly with `setStepHz(uint32_t f_step)`. If you configured `double_edge = true` in `StepDirConfig`, the effective PWM frequency used is `f_step/2` (this assumes a 50% duty cycle requirement for double-edge). The driver clamps frequencies to safe limits; see `min_freq`/`max_freq` in `BURT_TMC.h`.
+- Example (STEP/DIR):
 ```cpp
-myMotor.debugMoveSteps(50);  // move 50 steps as a test
+motor.setMotorRps(1.5f); // 1.5 RPS forward
+motor.setMotorRps(-0.5f); // 0.5 RPS reverse
+// Or set exact step frequency:
+motor.setStepHz(20000);
 ```
 
-2. Move by a given number of radians: 
-```cpp
-myMotor.moveBy(PI);  // move a half rotation
-```
+#### Internal Ramp mode notes 
+- Use `moveTo()` / `moveBy()` / `moveToSteps()` to control position and let the TMC5160 handle acceleration/deceleration using `InternalRampConfig` parameters (`current`, `speed`, `acceleration`).
+- Tune `vstart`, `vstop`, `A1`, `V1`, `AMAX`, and `VMAX` in `writeSettings()` for your mechanical load.
 
-3. Move to a given rotation:
-```cpp
-myMotor.moveTo(0);  // back to the home position
-```
+
+
+### Debugging & logging
+
+- Enable debug prints by defining `BURT_DEBUG` at compile time (recommended in development):
+  - In a sketch: `#define BURT_DEBUG` before including headers
+- Debug prints are gated and will not show in production unless the macro is defined.
+
+### Safety & e-stop
+
+- Use `eStop()` to immediately disable motor outputs and latch a software e-stop. Call `clearEStop()` to try to reinitialize (may require wiring checks if hardware ENN is not asserted).
+
+---
