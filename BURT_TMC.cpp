@@ -34,7 +34,8 @@ StepperMotor::StepperMotor(const StepperGeneralConfig& g,
 
 /** @brief True if XTARGET != XACTUAL */
 bool StepperMotor::isMoving() {
-  return driver.XTARGET() != driver.XACTUAL();
+  if (mode == TMC::INT_RAMP_MODE) return (driver.XTARGET() != driver.XACTUAL());
+  else if (mode == TMC::STEP_DIR_MODE) return ((step_hz == 0) ? false : true);
 }
 
 /** @brief Current step counter (signed 32-bit) */
@@ -288,8 +289,14 @@ bool StepperMotor::waitForInit(uint32_t timeout_ms) {
 } 
 
 void StepperMotor::calibrate() {
-  // Possible future implementation: realign internal TMC pos with Encoder reading
-  // Leaving to not break
+  // if (!limitSwitch.isAttached()) return;
+  // while (!limitSwitch.isPressed()) {
+  //   moveBySteps(10 * limitSwitch.direction);
+  // }
+  // stop();
+  // int limitSteps = limitSwitch.position * general.stepsPerUnit;
+  // // limitSwitch.offset = limitSteps - driver.XACTUAL() * limitSwitch.direction;
+  // limitSwitch.offset = -driver.XACTUAL();
 }
 
 void StepperMotor::update() {
@@ -354,7 +361,7 @@ void StepperMotor::eStop() {
   // Stop STEP driving
   analogWrite(pins.step_pin, 0);
   digitalWrite(pins.step_pin, LOW);
-
+  step_hz = 0;
   driver.toff(0); // Disable bridges
   status = TMC::E_STOPPED;
   #if defined(BURT_DEBUG)
@@ -390,6 +397,8 @@ void StepperMotor::setStepHz(uint32_t f_step) {
 
   analogWriteFrequency(pins.step_pin, f_PWM);
   analogWrite(pins.step_pin, 128); // 50% duty cycle
+
+  step_hz = f_PWM;
 }
 
 void StepperMotor::setMotorRps(float rps) {
@@ -410,3 +419,4 @@ void StepperMotor::setMotorRps(float rps) {
   );
   setStepHz(f_step);
 }
+

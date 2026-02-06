@@ -116,6 +116,8 @@ private:
   uint32_t                  last_reinit_attempt_ms   = 0;
   static constexpr uint32_t REINIT_ATTEMPT_PERIOD_MS = 1000;
 
+  float step_hz = 0;
+
   static inline const char* statusToString(DriverStatus s) {
     switch (s) {
       case TMC::STP_DIR_OK:    return "STEP/DIR Mode: Success";
@@ -155,6 +157,7 @@ public:
   static inline bool isDone(DriverStatus s)    { return isSuccess(s) || 
                                                         isError(s) || 
                                                         (s == TMC::E_STOPPED); }
+  inline float getStepHz() {return step_hz;}                                                      
 
   /** @brief Is the driver currently driving toward a target? */
   bool isMoving();
