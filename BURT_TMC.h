@@ -131,7 +131,7 @@ private:
       case TMC::ENN_ERR:       return "Timeout + ENN Error";
       case TMC::MODE_ERR:      return "Timeout + Wrong SD_MODE; check trace on TMC";
       case TMC::E_STOPPED:     return "Driver Software E-Stop is latched, reset the driver";
-      default:            return "Unknown";
+      default:                 return "Unknown";
     }
   }
 
