@@ -19,7 +19,6 @@ constexpr uint16_t mres                 = 16;               /**< Microstep resol
 constexpr int      microsteps_per_step  = 256;              /**< Microsteps per full step */
 constexpr float    microsteps_per_rad   = microsteps_per_step * steps_per_rotation / radians_per_rotation;
 constexpr float    microsteps_per_deg   = microsteps_per_step * steps_per_rotation / degrees_per_rotation;
-constexpr unsigned min_freq             = 1000;  // Change after testing
 constexpr unsigned max_freq             = 20000; // Change after testing
 
 /**
@@ -105,16 +104,19 @@ private:
   } config;
 
   // Vars for check_driver/resets 
-  static constexpr uint32_t init_timeout_ms   = 50;
-  static constexpr uint32_t loop_timeout_ms   = 25;
-  static constexpr uint8_t  retry_delay_ms    = 10;
-  uint32_t                  start_time_ms     = 0;
-  uint32_t                  last_check_ms     = 0;
-  DriverStatus              status            = TMC::RETRYING;
-  DriverStatus              prev_status       = TMC::RETRYING; /**< last reported status, used for transition logging */
+  static constexpr uint32_t init_timeout_ms         = 100;  
+  static constexpr uint32_t loop_timeout_ms         = 30;
+  static constexpr uint8_t  retry_delay_ms          = 10;
+  static constexpr uint32_t HEARTBEAT_INTERVAL_MS   = 15;
+  
+  uint32_t                  start_time_ms           = 0;
+  uint32_t                  last_check_ms           = 0;
+  uint32_t                  last_heartbeat_ms       = 0;    /**< Last time heartbeat triggered a driver check */
+  DriverStatus              status                  = TMC::RETRYING;
+  DriverStatus              prev_status             = TMC::RETRYING; /**< last reported status, used for transition logging */
 
-  uint32_t                  last_reinit_attempt_ms   = 0;
-  static constexpr uint32_t REINIT_ATTEMPT_PERIOD_MS = 1000;
+  uint32_t                  last_reinit_attempt_ms  = 0;
+  static constexpr uint8_t REINIT_ATTEMPT_PERIOD_MS = UINT8_MAX;
 
   float step_hz = 0;
 
@@ -138,6 +140,9 @@ private:
   void prepReset();
   void tryReset(const unsigned timeout);
   void checkDriver(const unsigned timeout);
+  void checkHeartbeat();
+  TMC5160Stepper::IOIN_t readIOIN();
+  DriverStatus assessIOIN(const TMC5160Stepper::IOIN_t& ioin, bool for_init);
   void writeSettings();
 
   void setDir(uint8_t direction);
@@ -157,7 +162,6 @@ public:
   static inline bool isDone(DriverStatus s)    { return isSuccess(s) || 
                                                         isError(s) || 
                                                         (s == TMC::E_STOPPED); }
-  inline float getStepHz() {return step_hz;}                                                      
 
   /** @brief Is the driver currently driving toward a target? */
   bool isMoving();
@@ -171,7 +175,7 @@ public:
 
   /** @brief Prepare pins and initial state (call early in setup) */
   void preSetup();
-  /** @brief Begin initialization; non-blocking init is performed by repeated calls to update() */
+  /** @brief Note setup() is mostly redundant, only used for init printing in debug */
   void setup();
   void calibrate();
   void update();

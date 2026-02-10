@@ -70,9 +70,9 @@ StepperMotor motor(g, pins, ramp);
 #### STEP/DIR mode notes 
 - Use `setMotorRps(float rps)` to set rotational speed (revolutions per second). Negative values select reverse rotation (the function will set `DIR` accordingly).
 - `setMotorRps()` is only valid in **STEP/DIR mode** — calling it in Internal Ramp mode is a no-op and will print a debug message when `BURT_DEBUG` is defined.
-- You can control STEP frequency directly with `setStepHz(uint32_t f_step)`. If you configured `double_edge = true` in `StepDirConfig`, the effective PWM frequency used is `f_step/2` (this assumes a 50% duty cycle requirement for double-edge). The driver clamps frequencies to safe limits; see `min_freq`/`max_freq` in `BURT_TMC.h`.
+You can control STEP frequency directly with `setStepHz(uint32_t f_step)`. If you configured `double_edge = true` in `StepDirConfig`, the effective PWM frequency used is `f_step/2` (this assumes a 50% duty cycle requirement for double-edge). The driver clamps frequencies to safe limits; see `max_freq` in `BURT_TMC.h`.
 - Example (STEP/DIR):
-```cpp
+Example (STEP/DIR):
 motor.setMotorRps(1.5f); // 1.5 RPS forward
 motor.setMotorRps(-0.5f); // 0.5 RPS reverse
 // Or set exact step frequency:

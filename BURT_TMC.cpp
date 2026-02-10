@@ -34,8 +34,10 @@ StepperMotor::StepperMotor(const StepperGeneralConfig& g,
 
 /** @brief True if XTARGET != XACTUAL */
 bool StepperMotor::isMoving() {
-  if (mode == TMC::INT_RAMP_MODE) return (driver.XTARGET() != driver.XACTUAL());
-  else if (mode == TMC::STEP_DIR_MODE) return ((step_hz == 0) ? false : true);
+  if  (mode == TMC::INT_RAMP_MODE) {
+      return driver.XTARGET() != driver.XACTUAL();
+  }
+  else return (step_hz != 0);
 }
 
 /** @brief Current step counter (signed 32-bit) */
@@ -74,18 +76,20 @@ void StepperMotor::prepReset() {
   driver.reset();
   // delay(5); // MAYBE NEEDED, leave commented for nonblocking (preferred)
 
-  #if defined(BURT_DEBUG)
+#if defined(BURT_DEBUG)
   uint32_t raw = driver.IOIN();
   TMC5160Stepper::IOIN_t i { raw };
   Serial.print("IOIN raw=0x"); Serial.println(raw, HEX);
   Serial.print("VERSION=0x"); Serial.println(i.version, HEX);
   Serial.print("SD_MODE="); Serial.println(i.sd_mode);
   Serial.print("DRV_ENN="); Serial.println(i.drv_enn);
-  #endif
+#endif
 
-  // prep state
-  start_time_ms = 0;
-  last_check_ms = millis() - retry_delay_ms;
+  // prep state: initialize heartbeat to trigger check immediately on next update()
+  uint32_t now = millis();
+  start_time_ms = now;           // Reset init timer
+  last_check_ms = now - retry_delay_ms;  // Allow immediate first check
+  last_heartbeat_ms = now - HEARTBEAT_INTERVAL_MS;  // Trigger heartbeat on next update()
   status = TMC::RETRYING;
 }
 
@@ -98,55 +102,42 @@ void StepperMotor::tryReset(const unsigned timeout) {
     if (isSuccess(status)) {
       ++init_success_cntr;
       writeSettings();
-      #if defined(BURT_DEBUG)
+#if defined(BURT_DEBUG)
       if (mode == TMC::INT_RAMP_MODE) Serial.println("Driver is in Internal Ramp Mode");
       else                            Serial.println("Driver is in STEP/DIR Mode");
-      #endif
+#endif
     } else {
-      #if defined(BURT_DEBUG)
+#if defined(BURT_DEBUG)
       Serial.print("Init failed: ");
       Serial.println(statusToString(status));
-      #endif
+#endif
     }
   }
 } 
 
 void StepperMotor::checkDriver(const unsigned timeout) {
   if (isDone(status)) return;
-  if (!start_time_ms) start_time_ms = millis();
+  
   uint32_t now = millis();
+  if (!start_time_ms) start_time_ms = now;
+  
   DriverStatus old = status;
 
-  if (now - last_check_ms >= retry_delay_ms) {
-    last_check_ms = now;
-    TMC5160Stepper::IOIN_t ioin { driver.IOIN() };
-    if (ioin.version == 0xFF || ioin.version == 0) {
-      // Comm Error
-      status = TMC::RETRYING_COMM;
-    }
-    else if (ioin.drv_enn) {
-      // Driver Enable Error (Hardware) [EN pin is not tied to GND]
-      status = TMC::RETRYING_ENN;
-    } else {
-      // COMM good, ENN good
-      if (mode == TMC::STEP_DIR_MODE) {
-        if (ioin.sd_mode) {
-          status = TMC::STP_DIR_OK;
-        } else {
-          // wrong sd_mode for STEP/DIR expected
-          status = TMC::RETRYING_MODE;
-        }
-      } else { // INT_RAMP_MODE
-        if (!ioin.sd_mode) {
-          status = TMC::POS_OK;
-        } else {
-          // wrong sd_mode for INT_RAMP expected
-          status = TMC::RETRYING_MODE;
-        }
-      }
-    }
+  // Perform IOIN check on both:
+  // 1. Scheduled retry_delay_ms cadence (for state progression)
+  // 2. Heartbeat-based cadence (ensures checks even if update() is infrequent)
+  bool time_for_retry = now - last_check_ms >= retry_delay_ms;
+  bool heartbeat_check = now - last_heartbeat_ms >= HEARTBEAT_INTERVAL_MS;
+  
+  if (time_for_retry || heartbeat_check) {
+    if (time_for_retry) last_check_ms = now;
+    if (heartbeat_check) last_heartbeat_ms = now;
+
+    auto ioin = readIOIN();
+    status = assessIOIN(ioin, true);
   }
 
+  // Timeout check: exceeds specified window without achieving success
   if ((now - start_time_ms) > timeout && !isDone(status)) {
     if      (status == TMC::RETRYING_COMM) status = TMC::COMM_ERR;
     else if (status == TMC::RETRYING_ENN)  status = TMC::ENN_ERR;
@@ -157,11 +148,51 @@ void StepperMotor::checkDriver(const unsigned timeout) {
   // Debug: print status transitions to help debugging initialization
   if (status != old) {
     prev_status = old;
-    #if defined(BURT_DEBUG)
+#if defined(BURT_DEBUG)
     Serial.print(general.name);
     Serial.print(" status -> ");
     Serial.println(statusToString(status));
-    #endif
+#endif
+  }
+}
+
+/**
+ * @brief Periodic runtime heartbeat poll that validates driver health while
+ *        the driver is operational. Runs at `HEARTBEAT_INTERVAL_MS` and will
+ *        trigger a restart of the init state-machine if a fault is detected.
+ */
+void StepperMotor::checkHeartbeat() {
+  uint32_t now = millis();
+  if (now - last_heartbeat_ms < HEARTBEAT_INTERVAL_MS) return;
+  last_heartbeat_ms = now;
+  auto ioin = readIOIN();
+  auto res = assessIOIN(ioin, false);
+  if (isSuccess(res)) return; // heartbeat OK
+
+  // Runtime detected an error: set concrete error status and restart init
+  status = res;
+#if defined(BURT_DEBUG)
+  Serial.print(general.name); Serial.print(" heartbeat: detected fault -> ");
+  Serial.println(statusToString(status));
+#endif
+  prepReset();
+}
+
+TMC5160Stepper::IOIN_t StepperMotor::readIOIN() {
+  uint32_t raw = driver.IOIN();
+  return TMC5160Stepper::IOIN_t{ raw };
+}
+
+StepperMotor::DriverStatus StepperMotor::assessIOIN(const TMC5160Stepper::IOIN_t& ioin, bool for_init) {
+  if (ioin.version == 0xFF || ioin.version == 0) return for_init ? TMC::RETRYING_COMM : TMC::COMM_ERR;
+  if (ioin.drv_enn) return for_init ? TMC::RETRYING_ENN : TMC::ENN_ERR;
+
+  if (mode == TMC::STEP_DIR_MODE) {
+    if (ioin.sd_mode) return TMC::STP_DIR_OK;
+    return for_init ? TMC::RETRYING_MODE : TMC::MODE_ERR;
+  } else {
+    if (!ioin.sd_mode) return TMC::POS_OK;
+    return for_init ? TMC::RETRYING_MODE : TMC::MODE_ERR;
   }
 }
 
@@ -229,21 +260,20 @@ void StepperMotor::writeSettings() {
       driver.RAMPMODE(0);
       break;
     default: 
-      #if defined(BURT_DEBUG)
+#if defined(BURT_DEBUG)
       Serial.println("Error: Motor not configured in S/D or Int Pos Mode");
-      #endif
+#endif
       break;
   }
 } 
 
 void StepperMotor::setup() {
-  #if defined(BURT_DEBUG)
+#if defined(BURT_DEBUG)
   Serial.print("Initializing motor ");
   Serial.print(general.name);
   Serial.println("... (non-blocking init started)");
   Serial.println("Call update() repeatedly or waitForInit() to complete initialization.");
-  #endif
-
+#endif
   // Start non-blocking initialization; `update()` will continue it.
   prepReset();
 }
@@ -278,10 +308,10 @@ bool StepperMotor::waitForInit(uint32_t timeout_ms) {
     tryReset(loop_timeout_ms);
     delay(retry_delay_ms);
     if (timeout_ms && (millis() - start) > timeout_ms) {
-      #if defined(BURT_DEBUG)
+#if defined(BURT_DEBUG)
       Serial.print(general.name);
       Serial.println(" waitForInit: timeout");
-      #endif
+#endif
       return false;
     }
   }
@@ -308,20 +338,29 @@ void StepperMotor::update() {
   if (limitSwitch.isPressed() && limitSwitch.isBlocking && isMovingTowardsLimit) stop();
   */
   if (status == TMC::E_STOPPED) return;
-
-  // Drive initialization forward if it is in progress
   if (!isDone(status)) {
     tryReset(loop_timeout_ms);
     return;
   }
 
-  // If we are in an error state, periodically attempt to kick the init again
+  // AUTOMATIC FAULT RECOVERY: If we are in an error state, periodically attempt recovery
+  // by resetting the driver and restarting initialization. This handles transient errors.
   if (isError(status)) {
     uint32_t now = millis();
     if (now - last_reinit_attempt_ms >= REINIT_ATTEMPT_PERIOD_MS) {
+#if defined(BURT_DEBUG)
+      Serial.print(general.name);
+      Serial.println(" attempting automatic fault recovery (re-init)...");
+#endif
       last_reinit_attempt_ms = now;
-      prepReset();
+      prepReset();  // Restart initialization state machine
+      tryReset(loop_timeout_ms);  // Perform first check immediately
     }
+  }
+
+  // Runtime heartbeat poll during normal operation
+  if (isSuccess(status)) {
+    checkHeartbeat();
   }
 }
 
@@ -361,13 +400,13 @@ void StepperMotor::eStop() {
   // Stop STEP driving
   analogWrite(pins.step_pin, 0);
   digitalWrite(pins.step_pin, LOW);
-  step_hz = 0;
+
   driver.toff(0); // Disable bridges
   status = TMC::E_STOPPED;
-  #if defined(BURT_DEBUG)
+#if defined(BURT_DEBUG)
   Serial.print(general.name);
   Serial.println(" => E-STOP engaged");
-  #endif
+#endif
 }
 
 void StepperMotor::clearEStop() {
@@ -379,9 +418,9 @@ void StepperMotor::clearEStop() {
   last_reinit_attempt_ms = 0;
   prepReset();
   tryReset(init_timeout_ms);
-  #if defined(BURT_DEBUG)
+#if defined(BURT_DEBUG)
   if (status == TMC::RETRYING || isDone(status)) Serial.println("E-STOP cleared, attempting re-init");
-  #endif
+#endif
 } 
 
 void StepperMotor::setDir(uint8_t direction) {
@@ -392,7 +431,6 @@ void StepperMotor::setStepHz(uint32_t f_step) {
   uint32_t f_PWM = config.stepDir.double_edge ? f_step/2 : f_step;
 
   // Clamp PWM to configured min/max
-  if (f_PWM < min_freq) f_PWM = min_freq;
   if (f_PWM > max_freq) f_PWM = max_freq;  
 
   analogWriteFrequency(pins.step_pin, f_PWM);
@@ -404,9 +442,9 @@ void StepperMotor::setStepHz(uint32_t f_step) {
 void StepperMotor::setMotorRps(float rps) {
   // Only valid in STEP/DIR mode
   if (mode != TMC::STEP_DIR_MODE) {
-    #if defined(BURT_DEBUG)
+#if defined(BURT_DEBUG)
     Serial.println("setMotorRps() ignored: motor not in STEP/DIR mode");
-    #endif
+#endif
     return;
   }
 
@@ -419,4 +457,3 @@ void StepperMotor::setMotorRps(float rps) {
   );
   setStepHz(f_step);
 }
-
