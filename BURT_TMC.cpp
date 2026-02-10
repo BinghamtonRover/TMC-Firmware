@@ -174,7 +174,7 @@ void StepperMotor::checkHeartbeat() {
 #if defined(BURT_DEBUG)
   Serial.print(general.name); Serial.print(" heartbeat: detected fault -> ");
   Serial.println(statusToString(status));
-  #endif
+#endif
   prepReset();
 }
 
