@@ -175,7 +175,7 @@ public:
 
   /** @brief Prepare pins and initial state (call early in setup) */
   void preSetup();
-  /** @brief Begin initialization; non-blocking init is performed by repeated calls to update() */
+  /** @brief Note setup() is mostly redundant, only used for init printing in debug */
   void setup();
   void calibrate();
   void update();
