@@ -34,7 +34,9 @@ StepperMotor::StepperMotor(const StepperGeneralConfig& g,
 
 /** @brief True if XTARGET != XACTUAL */
 bool StepperMotor::isMoving() {
-  if   (mode == TMC::INT_RAMP_MODE) return (driver.XTARGET() != driver.XACTUAL());
+  if  (mode == TMC::INT_RAMP_MODE) {
+      return driver.XTARGET() != driver.XACTUAL();
+  }
   else return (step_hz != 0);
 }
 
