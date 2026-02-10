@@ -352,7 +352,7 @@ void StepperMotor::update() {
 #if defined(BURT_DEBUG)
       Serial.print(general.name);
       Serial.println(" attempting automatic fault recovery (re-init)...");
-      #endif
+#endif
       last_reinit_attempt_ms = now;
       prepReset();  // Restart initialization state machine
       tryReset(loop_timeout_ms);  // Perform first check immediately
