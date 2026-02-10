@@ -1,6 +1,5 @@
 #include "BURT_TMC.h"
 #include <cmath>
-#define BURT_DEBUG
 
 /**
  * @file BURT_TMC.cpp
