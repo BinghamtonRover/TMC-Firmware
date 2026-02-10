@@ -127,7 +127,7 @@ void StepperMotor::checkDriver(const unsigned timeout) {
   // 1. Scheduled retry_delay_ms cadence (for state progression)
   // 2. Heartbeat-based cadence (ensures checks even if update() is infrequent)
   bool time_for_retry = now - last_check_ms >= retry_delay_ms;
-  bool heartbeat_check = (now - last_heartbeat_ms >= HEARTBEAT_INTERVAL_MS);
+  bool heartbeat_check = now - last_heartbeat_ms >= HEARTBEAT_INTERVAL_MS;
   
   if (time_for_retry || heartbeat_check) {
     if (time_for_retry) last_check_ms = now;
