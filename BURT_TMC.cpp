@@ -349,7 +349,7 @@ void StepperMotor::update() {
   if (isError(status)) {
     uint32_t now = millis();
     if (now - last_reinit_attempt_ms >= REINIT_ATTEMPT_PERIOD_MS) {
-      #if defined(BURT_DEBUG)
+#if defined(BURT_DEBUG)
       Serial.print(general.name);
       Serial.println(" attempting automatic fault recovery (re-init)...");
       #endif
