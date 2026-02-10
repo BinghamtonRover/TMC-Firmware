@@ -161,7 +161,7 @@ void StepperMotor::checkDriver(const unsigned timeout) {
  *        the driver is operational. Runs at `HEARTBEAT_INTERVAL_MS` and will
  *        trigger a restart of the init state-machine if a fault is detected.
  */
-void StepperMotor::heartbeat() {
+void StepperMotor::checkHeartbeat() {
   uint32_t now = millis();
   if (now - last_heartbeat_ms < HEARTBEAT_INTERVAL_MS) return;
   last_heartbeat_ms = now;
@@ -361,7 +361,7 @@ void StepperMotor::update() {
 
   // Runtime heartbeat poll during normal operation
   if (isSuccess(status)) {
-    heartbeat();
+    checkHeartbeat();
   }
 }
 

@@ -140,7 +140,7 @@ private:
   void prepReset();
   void tryReset(const unsigned timeout);
   void checkDriver(const unsigned timeout);
-  void heartbeat();
+  void checkHeartbeat();
   TMC5160Stepper::IOIN_t readIOIN();
   DriverStatus assessIOIN(const TMC5160Stepper::IOIN_t& ioin, bool for_init);
   void writeSettings();
