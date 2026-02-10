@@ -171,7 +171,7 @@ void StepperMotor::checkHeartbeat() {
 
   // Runtime detected an error: set concrete error status and restart init
   status = res;
-  #if defined(BURT_DEBUG)
+#if defined(BURT_DEBUG)
   Serial.print(general.name); Serial.print(" heartbeat: detected fault -> ");
   Serial.println(statusToString(status));
   #endif
