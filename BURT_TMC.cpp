@@ -131,33 +131,9 @@ void StepperMotor::checkDriver(const unsigned timeout) {
   if (time_for_retry || heartbeat_check) {
     if (time_for_retry) last_check_ms = now;
     if (heartbeat_check) last_heartbeat_ms = now;
-    
-    TMC5160Stepper::IOIN_t ioin { driver.IOIN() };
-    if (ioin.version == 0xFF || ioin.version == 0) {
-      // Comm Error
-      status = TMC::RETRYING_COMM;
-    }
-    else if (ioin.drv_enn) {
-      // Driver Enable Error (Hardware) [EN pin is not tied to GND]
-      status = TMC::RETRYING_ENN;
-    } else {
-      // COMM good, ENN good
-      if (mode == TMC::STEP_DIR_MODE) {
-        if (ioin.sd_mode) {
-          status = TMC::STP_DIR_OK;
-        } else {
-          // wrong sd_mode for STEP/DIR expected
-          status = TMC::RETRYING_MODE;
-        }
-      } else { // INT_RAMP_MODE
-        if (!ioin.sd_mode) {
-          status = TMC::POS_OK;
-        } else {
-          // wrong sd_mode for INT_RAMP expected
-          status = TMC::RETRYING_MODE;
-        }
-      }
-    }
+
+    auto ioin = readIOIN();
+    status = assessIOIN(ioin, true);
   }
 
   // Timeout check: exceeds specified window without achieving success
@@ -188,51 +164,35 @@ void StepperMotor::heartbeat() {
   uint32_t now = millis();
   if (now - last_heartbeat_ms < HEARTBEAT_INTERVAL_MS) return;
   last_heartbeat_ms = now;
+  auto ioin = readIOIN();
+  auto res = assessIOIN(ioin, false);
+  if (isSuccess(res)) return; // heartbeat OK
 
-  TMC5160Stepper::IOIN_t ioin { driver.IOIN() };
+  // Runtime detected an error: set concrete error status and restart init
+  status = res;
+  #if defined(BURT_DEBUG)
+  Serial.print(general.name); Serial.print(" heartbeat: detected fault -> ");
+  Serial.println(statusToString(status));
+  #endif
+  prepReset();
+}
 
-  // Communication error / no response
-  if (ioin.version == 0xFF || ioin.version == 0) {
-    #if defined(BURT_DEBUG)
-    Serial.print(general.name); Serial.println(" heartbeat: COMM error");
-    #endif
-    status = TMC::RETRYING_COMM;
-    prepReset();
-    return;
-  }
+TMC5160Stepper::IOIN_t StepperMotor::readIOIN() {
+  uint32_t raw = driver.IOIN();
+  return TMC5160Stepper::IOIN_t{ raw };
+}
 
-  // Driver not enabled (hardware EN pin)
-  if (ioin.drv_enn) {
-    #if defined(BURT_DEBUG)
-    Serial.print(general.name); Serial.println(" heartbeat: ENN asserted");
-    #endif
-    status = TMC::RETRYING_ENN;
-    prepReset();
-    return;
-  }
+StepperMotor::DriverStatus StepperMotor::assessIOIN(const TMC5160Stepper::IOIN_t& ioin, bool for_init) {
+  if (ioin.version == 0xFF || ioin.version == 0) return for_init ? TMC::RETRYING_COMM : TMC::COMM_ERR;
+  if (ioin.drv_enn) return for_init ? TMC::RETRYING_ENN : TMC::ENN_ERR;
 
-  // Mode mismatch detected
   if (mode == TMC::STEP_DIR_MODE) {
-    if (!ioin.sd_mode) {
-      #if defined(BURT_DEBUG)
-      Serial.print(general.name); Serial.println(" heartbeat: wrong SD_MODE (expected STEP/DIR)");
-      #endif
-      status = TMC::RETRYING_MODE;
-      prepReset();
-      return;
-    }
-  } else { // INT_RAMP_MODE
-    if (ioin.sd_mode) {
-      #if defined(BURT_DEBUG)
-      Serial.print(general.name); Serial.println(" heartbeat: wrong SD_MODE (expected INT_RAMP)");
-      #endif
-      status = TMC::RETRYING_MODE;
-      prepReset();
-      return;
-    }
+    if (ioin.sd_mode) return TMC::STP_DIR_OK;
+    return for_init ? TMC::RETRYING_MODE : TMC::MODE_ERR;
+  } else {
+    if (!ioin.sd_mode) return TMC::POS_OK;
+    return for_init ? TMC::RETRYING_MODE : TMC::MODE_ERR;
   }
-
-  // Heartbeat OK; nothing to do. Driver remains in success state.
 }
 
 
@@ -471,7 +431,6 @@ void StepperMotor::setStepHz(uint32_t f_step) {
   uint32_t f_PWM = config.stepDir.double_edge ? f_step/2 : f_step;
 
   // Clamp PWM to configured min/max
-  if (f_PWM < min_freq) f_PWM = min_freq;
   if (f_PWM > max_freq) f_PWM = max_freq;  
 
   analogWriteFrequency(pins.step_pin, f_PWM);
