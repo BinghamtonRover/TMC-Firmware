@@ -145,10 +145,19 @@ private:
   DriverStatus assessIOIN(const TMC5160Stepper::IOIN_t& ioin, bool for_init);
   void writeSettings();
 
+
   void setDir(uint8_t direction);
   void setStepHz(uint32_t f_step);
 
 public:
+  // --- Diagnostics helpers (public) -------------------------------------
+  /** Probe the raw IOIN register from the underlying TMC5160 and return
+   *  the driver-visible status assessed for initialization (for_init=true).
+   */
+  DriverStatus probeInitIOIN();
+
+  /** Read raw IOIN register value (32-bit) */
+  uint32_t probeRawIOIN();
   StepperMotor(const StepperGeneralConfig& g,
                const StepperMotorPins& p,
                const StepDirConfig& cfg);
