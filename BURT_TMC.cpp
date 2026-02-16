@@ -1,3 +1,4 @@
+// #define BURT_DEBUG
 #include "BURT_TMC.h"
 #include <cmath>
 
@@ -267,6 +268,16 @@ void StepperMotor::writeSettings() {
   }
 } 
 
+// --- Diagnostics helpers -------------------------------------------------
+StepperMotor::DriverStatus StepperMotor::probeInitIOIN() {
+  auto ioin = readIOIN();
+  return assessIOIN(ioin, true);
+}
+
+uint32_t StepperMotor::probeRawIOIN() {
+  return driver.IOIN();
+}
+
 void StepperMotor::setup() {
 #if defined(BURT_DEBUG)
   Serial.print("Initializing motor ");
@@ -340,12 +351,14 @@ void StepperMotor::update() {
   if (status == TMC::E_STOPPED) return;
   if (!isDone(status)) {
     tryReset(loop_timeout_ms);
+    // Serial.println("GOT TO NOT ISDONE");
     return;
   }
 
   // AUTOMATIC FAULT RECOVERY: If we are in an error state, periodically attempt recovery
   // by resetting the driver and restarting initialization. This handles transient errors.
   if (isError(status)) {
+    // Serial.println("GOT TO ERROR");
     uint32_t now = millis();
     if (now - last_reinit_attempt_ms >= REINIT_ATTEMPT_PERIOD_MS) {
 #if defined(BURT_DEBUG)
@@ -360,6 +373,7 @@ void StepperMotor::update() {
 
   // Runtime heartbeat poll during normal operation
   if (isSuccess(status)) {
+    // Serial.println("GOT TO HEARTBEAT");
     checkHeartbeat();
   }
 }
