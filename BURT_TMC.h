@@ -148,6 +148,8 @@ private:
   void setDir(uint8_t direction);
   void setStepHz(uint32_t f_step);
 
+  // do we have a way to read/write to TMC5160 registers?
+
 public:
   StepperMotor(const StepperGeneralConfig& g,
                const StepperMotorPins& p,
@@ -162,6 +164,11 @@ public:
   static inline bool isDone(DriverStatus s)    { return isSuccess(s) || 
                                                         isError(s) || 
                                                         (s == TMC::E_STOPPED); }
+
+  // declarations for stallguard
+  void setSGT(int8_t sgt);
+  uint16_t getSGResult();
+  bool isStalled();
 
   /** @brief Is the driver currently driving toward a target? */
   bool isMoving();
