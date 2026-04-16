@@ -457,3 +457,37 @@ void StepperMotor::setMotorRps(float rps) {
   );
   setStepHz(f_step);
 }
+
+void StepperMotor::setSGT(int8_t sgt) {
+  uint32_t reg = readRegister(COOLCONF);
+
+  reg &= ~(0x7F << 16);               // clear bits 22:16
+  reg |= ((sgt & 0x7F) << 16);        // set SGT
+
+  // writeRegister(COOLCONF, reg); // write to register
+}
+
+uint16_t StepperMotor::getSGResult()
+{
+  // uint32_t status = readRegister(DRV_STATUS); // read from register
+
+  return status & 0x3FF;   // lower 10 bits
+}
+
+bool StepperMotor::isStalled()
+{
+  // return getSGResult() <= 5; // threshhold has to be tested on and changed
+}
+
+// how to call (generally):
+/* TStepperMotor motor;
+
+StepperMotor.setSGT(0);
+
+while (1)
+{
+  if (StepperMotor.isStalled())
+  {
+    stopMotor(); // stop the motor
+  }
+}*/
