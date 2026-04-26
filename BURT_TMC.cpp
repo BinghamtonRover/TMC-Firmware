@@ -457,3 +457,7 @@ void StepperMotor::setMotorRps(float rps) {
   );
   setStepHz(f_step);
 }
+
+int16_t StepperMotor::getSGRegister() {
+  return driver.sg_result();
+}

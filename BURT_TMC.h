@@ -232,4 +232,11 @@ public:
    * @note Negative values drive reverse direction; function is a no-op in other modes.
    */
   void setMotorRps(float rps);
+  
+  /**
+   * @brief get the SG_Result value for stall detection
+   * 
+   * @return int16_t 
+   */
+  int16_t getSGRegister();
 };
