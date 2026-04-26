@@ -235,7 +235,7 @@ public:
   
   /**
    * @brief get the SG_Result value for stall detection
-   * 
+   * A value near 0 means that a stall is likely
    * @return int16_t 
    */
   int16_t getSGRegister();
