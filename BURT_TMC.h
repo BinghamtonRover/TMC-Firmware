@@ -4,6 +4,8 @@
 #include "TmcStepper.h"
 #include "limit.h"
 
+#define BURT_DEBUG
+
 /**
  * @file BURT_TMC.h
  * @brief Stepper motor driver abstraction for TMC5160 supporting STEP/DIR and
@@ -239,4 +241,7 @@ public:
    * @return int16_t 
    */
   int16_t getSGRegister();
+
+  
+  void stallStop();
 };

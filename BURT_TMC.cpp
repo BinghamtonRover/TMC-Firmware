@@ -461,3 +461,11 @@ void StepperMotor::setMotorRps(float rps) {
 int16_t StepperMotor::getSGRegister() {
   return driver.sg_result();
 }
+
+void StepperMotor::stallStop() {
+  driver.TCOOLTHRS(100);
+  driver.sg_stop(true);
+  driver.RAMP_STAT();
+  // driver.read(0x35);
+  return;
+}
