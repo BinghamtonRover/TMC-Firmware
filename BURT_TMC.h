@@ -237,11 +237,14 @@ public:
   
   /**
    * @brief get the SG_Result value for stall detection
+   * @note instead of manually using this for stall detection, just use the built-in method (stallStop)
    * A value near 0 means that a stall is likely
    * @return int16_t 
    */
   int16_t getSGRegister();
 
   
-  void stallStop();
+  void beginSG();
+
+  void StepperMotor::clearSGStop()
 };

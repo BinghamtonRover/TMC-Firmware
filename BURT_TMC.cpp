@@ -462,10 +462,15 @@ int16_t StepperMotor::getSGRegister() {
   return driver.sg_result();
 }
 
-void StepperMotor::stallStop() {
-  driver.TCOOLTHRS(100);
+void StepperMotor::beginSG() {
+  driver.TCOOLTHRS(100);  // stallguard only active above this velocity threshold (units: time btwn steps)
   driver.sg_stop(true);
-  driver.RAMP_STAT();
-  // driver.read(0x35);
   return;
+}
+
+void StepperMotor::clearSGStop() {
+  uint16_t current_state = driver.RAMP_STAT();
+  RAMP_STAT_t new_state{current_state};
+  new_state.event_stop_sg = 1;  // WC
+  driver.RAMP_STAT(new_state);
 }
