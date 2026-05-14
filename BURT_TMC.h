@@ -4,7 +4,7 @@
 #include "TmcStepper.h"
 #include "limit.h"
 
-#define BURT_DEBUG
+// #define BURT_DEBUG
 
 /**
  * @file BURT_TMC.h
@@ -237,14 +237,38 @@ public:
   
   /**
    * @brief get the SG_Result value for stall detection
-   * @note instead of manually using this for stall detection, just use the built-in method (stallStop)
-   * A value near 0 means that a stall is likely
+   * @note instead of manually using this for stall detection, just use the built-in method (stallStop). this is meant for debugging
+   * @note A value near 0 means that a stall is likely
    * @return int16_t 
    */
   int16_t getSGRegister();
-
   
-  void beginSG();
+  /**
+   * @brief Inititalizes the automatic stop-on-stall (sg_stop) feature of TMC
+   * 
+   * @param threshold This is the threshold at which the stall detection is active.
+   * Units: clock cycles between microsteps. In other words, threshold of 0xFFFFF (max) = stall detection active at very low speed and vice versa
+   * Set this too large (slow threshold velocity) and the TMC will stall on startup
+   * Set this too large (fast threshold velocity) and the TMC will never detect a stall
+   * 
+   * @note At the time of this being written, the TMC_Stepper library has a warning about narrowing conversions due to the way it is written.
+   * This function bypasses that warning by manually writing the bits, and the intended method for writing to the register is commented out so it can be used in the future
+   */
+  void beginSG(uint32_t threshold);
 
-  void StepperMotor::clearSGStop()
+  /**
+   * @brief When the TMC detects a stall and stops the stepper, it enters a latched state. Call this function to clear the latch and restart the motor
+   * 
+   * @note At the time of this being written, the TMC_Stepper library has a warning about narrowing conversions due to the way it is written.
+   * This function bypasses that warning by manually writing the bits, and the intended method for writing to the register is commented out so it can be used in the future
+   */
+  void clearSGStop();
+
+  /**
+   * @brief Checks if the motor is stalled (is stallguard stop in a latched state)?
+   * 
+   * @return true 
+   * @return false 
+   */
+  bool isStalled();
 };

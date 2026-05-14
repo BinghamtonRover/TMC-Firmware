@@ -462,15 +462,24 @@ int16_t StepperMotor::getSGRegister() {
   return driver.sg_result();
 }
 
-void StepperMotor::beginSG() {
-  driver.TCOOLTHRS(100);  // stallguard only active above this velocity threshold (units: time btwn steps)
-  driver.sg_stop(true);
+void StepperMotor::beginSG(uint32_t threshold) {
+  clearSGStop();
+  driver.TCOOLTHRS(threshold);  // stallguard only active above this velocity threshold (units: time btwn steps); 100 is arbitrary
+  TMC5160_n::SW_MODE_t mask{0};
+  mask.sg_stop = 1;
+  driver.SW_MODE(mask.sr);
+  // driver.sg_stop(1); // the above 3 lines do same thing as this, but bypass warning about narrowing
   return;
 }
 
 void StepperMotor::clearSGStop() {
-  uint16_t current_state = driver.RAMP_STAT();
-  RAMP_STAT_t new_state{current_state};
-  new_state.event_stop_sg = 1;  // WC
-  driver.RAMP_STAT(new_state);
+  TMC5160_n::RAMP_STAT_t mask{0};
+  mask.event_stop_sg = 1;  // Write to clear
+  driver.RAMP_STAT(mask.sr);
+  // driver.event_stop_sg(1); // the above 3 lines do same thing as this, but bypass warning about narrowing
+  return;
+}
+
+bool StepperMotor::isStalled() {
+  return driver.event_stop_sg();
 }
