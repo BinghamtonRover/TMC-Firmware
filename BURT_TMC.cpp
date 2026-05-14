@@ -462,7 +462,7 @@ int16_t StepperMotor::getSGRegister() {
   return driver.sg_result();
 }
 
-void StepperMotor::beginSG(uint32_t threshold) {
+void StepperMotor::enableStallStop(uint32_t threshold) {
   clearSGStop();
   driver.TCOOLTHRS(threshold);  // stallguard only active above this velocity threshold (units: time btwn steps); 100 is arbitrary
   TMC5160_n::SW_MODE_t mask{0};
@@ -472,7 +472,11 @@ void StepperMotor::beginSG(uint32_t threshold) {
   return;
 }
 
-void StepperMotor::clearSGStop() {
+void StepperMotor::enableStallStop(uint32_t threshold, uint32_t duration_disabled) {
+  StepperMotor::enableStallStop(threshold);
+}
+
+void StepperMotor::clearStallStop() {
   TMC5160_n::RAMP_STAT_t mask{0};
   mask.event_stop_sg = 1;  // Write to clear
   driver.RAMP_STAT(mask.sr);

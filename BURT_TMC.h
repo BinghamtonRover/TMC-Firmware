@@ -251,18 +251,36 @@ public:
    * Set this too large (slow threshold velocity) and the TMC will stall on startup
    * Set this too large (fast threshold velocity) and the TMC will never detect a stall
    * 
+   * @param duration_disabled If specified, when the motor is stalled, automatically re-enable the motor (clear stallguard) after duration_disabled milliseconds
+   * If so desired, this duration can be bypassed and stall can be immediately cleared by using clearStallStop()
+   * 
    * @note At the time of this being written, the TMC_Stepper library has a warning about narrowing conversions due to the way it is written.
-   * This function bypasses that warning by manually writing the bits, and the intended method for writing to the register is commented out so it can be used in the future
    */
-  void beginSG(uint32_t threshold);
+  void enableStallStop(uint32_t threshold, uint32_t duration_disabled);
 
   /**
-   * @brief When the TMC detects a stall and stops the stepper, it enters a latched state. Call this function to clear the latch and restart the motor
+   * @brief Inititalizes the automatic stop-on-stall (sg_stop) feature of TMC
+   * 
+   * @param threshold This is the threshold at which the stall detection is active.
+   * Units: clock cycles between microsteps. In other words, threshold of 0xFFFFF (max) = stall detection active at very low speed and vice versa
+   * Set this too large (slow threshold velocity) and the TMC will stall on startup
+   * Set this too large (fast threshold velocity) and the TMC will never detect a stall
+   * 
+   * @param duration_disabled If specified, when the motor is stalled, automatically re-enable the motor (clear stallguard) after duration_disabled milliseconds
+   * If so desired, this duration can be bypassed and stall can be immediately cleared by using clearStallStop()
+   * If this is not specified, the stall can only be cleared manually
+   * 
+   * @note At the time of this being written, the TMC_Stepper library has a warning about narrowing conversions due to the way it is written.
+   */
+  void enableStallStop(uint32_t threshold);
+
+  /**
+   * @brief When the TMC detects a stall and stops the stepper, it enters a latched state. Call this function to imediately clear the latch and restart the motor
    * 
    * @note At the time of this being written, the TMC_Stepper library has a warning about narrowing conversions due to the way it is written.
    * This function bypasses that warning by manually writing the bits, and the intended method for writing to the register is commented out so it can be used in the future
    */
-  void clearSGStop();
+  void clearStallStop();
 
   /**
    * @brief Checks if the motor is stalled (is stallguard stop in a latched state)?
