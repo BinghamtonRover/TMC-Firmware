@@ -122,6 +122,8 @@ private:
 
   float step_hz = 0;
 
+  uint32_t stallstop_duration_disabled_ms = 0;
+
   static inline const char* statusToString(DriverStatus s) {
     switch (s) {
       case TMC::STP_DIR_OK:    return "STEP/DIR Mode: Success";
@@ -256,7 +258,7 @@ public:
    * 
    * @note At the time of this being written, the TMC_Stepper library has a warning about narrowing conversions due to the way it is written.
    */
-  void enableStallStop(uint32_t threshold, uint32_t duration_disabled);
+  void enableStallStop(uint32_t threshold, uint32_t duration_disabled_ms);
 
   /**
    * @brief Inititalizes the automatic stop-on-stall (sg_stop) feature of TMC
