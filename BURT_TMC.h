@@ -122,6 +122,7 @@ private:
 
   float step_hz = 0;
 
+  bool     stallstop_restart_enabled      = false;
   uint32_t stallstop_duration_disabled_ms = 0;
 
   static inline const char* statusToString(DriverStatus s) {

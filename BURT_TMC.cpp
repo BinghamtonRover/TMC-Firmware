@@ -474,6 +474,8 @@ void StepperMotor::enableStallStop(uint32_t threshold) {
 
 void StepperMotor::enableStallStop(uint32_t threshold, uint32_t duration_disabled_ms) {
   StepperMotor::enableStallStop(threshold);
+  stallstop_restart_enabled = true;
+  stallstop_duration_disabled_ms = duration_disabled_ms;
 }
 
 void StepperMotor::clearStallStop() {
