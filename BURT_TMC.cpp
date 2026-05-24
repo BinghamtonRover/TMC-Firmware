@@ -362,6 +362,24 @@ void StepperMotor::update() {
   if (isSuccess(status)) {
     checkHeartbeat();
   }
+
+  // Handle automatic restart from stallstop trigger
+  if (stallstop_restart_enabled) {
+    switch(stallStopState) {
+      case(StallStopState::MOVING):
+        if (isStalled()) {
+          stallStopState = StallStopState::STALLED;
+          stalled_start_time_ms = millis();
+        }
+        break;
+      case(StallStopState::STALLED):
+        if (millis() - stalled_start_time_ms > stallstop_duration_disabled_ms) {
+          clearStallStop();
+          stallStopState = StallStopState::MOVING;
+        }
+        break;
+    }
+  }
 }
 
 void StepperMotor::stop() {

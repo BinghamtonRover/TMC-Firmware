@@ -122,8 +122,14 @@ private:
 
   float step_hz = 0;
 
+  // variables for stallstop
   bool     stallstop_restart_enabled      = false;
   uint32_t stallstop_duration_disabled_ms = 0;
+  enum class StallStopState : uint8_t {
+    MOVING,
+    STALLED
+  }; StallStopState stallStopState = StallStopState::MOVING;
+  uint32_t stalled_start_time_ms = 0;
 
   static inline const char* statusToString(DriverStatus s) {
     switch (s) {
