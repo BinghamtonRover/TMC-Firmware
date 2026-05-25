@@ -483,7 +483,8 @@ int16_t StepperMotor::getSGRegister() {
 void StepperMotor::enableStallStop(uint32_t threshold) {
   clearStallStop();
   driver.TCOOLTHRS(threshold);  // stallguard only active above this velocity threshold (units: time btwn steps); 100 is arbitrary
-  TMC5160_n::SW_MODE_t mask{driver.SW_MODE()};
+  TMC5160_n::SW_MODE_t mask;
+  mask.sr = driver.SW_MODE();
   mask.sg_stop = 1;
   driver.SW_MODE(mask.sr);
   // driver.sg_stop(1); // the above 3 lines do same thing as this, but bypass warning about narrowing
